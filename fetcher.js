@@ -31,19 +31,6 @@ function extractDescription(content, maxLen = 300) {
   return clean.length > maxLen ? clean.slice(0, maxLen) + '...' : clean;
 }
 
-function getTextToFilter(article) {
-  return `${article.titulo_original || article.titulo} ${article.descripcion_original || article.descripcion || ''} ${article.titulo} ${article.descripcion || ''}`.toLowerCase();
-}
-
-async function filtrar(noticias) {
-  const palabras = await db.getActiveKeywords();
-  if (palabras.length === 0) return noticias;
-  return noticias.filter(n => {
-    const text = getTextToFilter(n);
-    return palabras.some(p => text.includes(p));
-  });
-}
-
 async function fetchFuente(fuente) {
   try {
     const feed = await rssParser.parseURL(fuente.url);
@@ -76,38 +63,80 @@ async function fetchFuente(fuente) {
   }
 }
 
+async function searchByKeyword(keyword) {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=es-419&gl=US&ceid=US:es-419`;
+  try {
+    const feed = await rssParser.parseURL(url);
+    const items = feed.items || [];
+    return items
+      .map(item => ({
+        titulo: item.title?.trim() || '',
+        descripcion: extractDescription(item.content || item.contentSnippet || item.description),
+        contenido: item.content || item['content:encoded'] || null,
+        url: item.link?.trim() || '',
+        fuente: `Búsqueda: ${keyword}`,
+        autor: item.creator || item.dcCreator || null,
+        imagen: extractImage(item),
+        fecha_publicacion: item.pubDate
+          ? new Date(item.pubDate).toISOString()
+          : new Date().toISOString(),
+      }))
+      .filter(a => a.titulo && a.url);
+  } catch (err) {
+    console.error(`Error searching keyword "${keyword}": ${err.message}`);
+    return [];
+  }
+}
+
 async function fetchAll() {
   const fuentes = await db.getActiveFuentes();
   const todas = [];
 
+  // 1. Fetch from manually-added sources (no keyword filter — all articles pass)
   for (const fuente of fuentes) {
-    console.log(`Fetching: ${fuente.nombre}...`);
+    console.log(`Fetching source: ${fuente.nombre}...`);
     const items = await fetchFuente(fuente);
     todas.push(...items);
   }
 
-  const preliminares = await filtrar(todas);
-  console.log(`  Coinciden keywords en texto original: ${preliminares.length} de ${todas.length}`);
+  // 2. Search by each active keyword via Google News RSS
+  const palabras = await db.getActiveKeywords();
+  for (const palabra of palabras) {
+    console.log(`Searching keyword: ${palabra}...`);
+    const items = await searchByKeyword(palabra);
+    const filtered = items.filter(a => {
+      const text = `${a.titulo} ${a.descripcion || ''}`.toLowerCase();
+      return text.includes(palabra.toLowerCase());
+    });
+    todas.push(...filtered);
+  }
 
+  // 3. Translate (best-effort, skips on timeout/rate-limit)
   let traducidas = [];
-  for (const item of preliminares) {
+  for (const item of todas) {
     const t = await translateArticle(item);
     traducidas.push(t);
   }
 
-  const finales = await filtrar(traducidas);
-  console.log(`  Coinciden keywords en texto traducido: ${finales.length} de ${traducidas.length}`);
-
+  // 4. Save to database (deduplicated by URL)
   let nuevas = 0;
-  for (const item of finales) {
+  for (const item of traducidas) {
     if (await db.insertNoticia(item)) nuevas++;
   }
 
-  console.log(`Obtenidas ${todas.length}, pasaron filtro: ${finales.length}, nuevas: ${nuevas}`);
-  return { total: todas.length, filtradas: finales.length, nuevas };
+  console.log(`Obtenidas ${todas.length}, guardadas nuevas: ${nuevas}`);
+  return { total: todas.length, nuevas };
+}
+
+async function testFeed(url) {
+  const feed = await rssParser.parseURL(url);
+  if (!feed || !feed.items || feed.items.length === 0) {
+    throw new Error('El feed no contiene artículos');
+  }
 }
 
 module.exports = {
   fetchAll,
+  testFeed,
   ...db,
 };

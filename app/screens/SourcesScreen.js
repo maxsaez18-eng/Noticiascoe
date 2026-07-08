@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, Alert, Platform,
+  StyleSheet, Alert, Platform, ActivityIndicator,
 } from 'react-native';
-import { getFuentes, addFuente, deleteFuente, toggleFuente } from '../api';
+import { useTheme } from '../theme';
+import { getFuentes, addFuente, deleteFuente, toggleFuente, fetchNews } from '../api';
 
-export default function SourcesScreen() {
+export default function SourcesScreen({ navigation }) {
+  const { colors } = useTheme();
   const [fuentes, setFuentes] = useState([]);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [adding, setAdding] = useState(false);
 
   const load = async () => setFuentes(await getFuentes());
   useEffect(() => { load(); }, []);
@@ -19,63 +22,71 @@ export default function SourcesScreen() {
       else Alert.alert('Error', 'Completa nombre y URL');
       return;
     }
+    setAdding(true);
     const res = await addFuente(name.trim(), url.trim(), 'rss');
+    setName(''); setUrl('');
     if (res.error) {
       if (Platform.OS === 'web') alert(res.error);
       else Alert.alert('Error', res.error);
+      setAdding(false);
+      return;
     }
-    setName(''); setUrl('');
     await load();
+    await fetchNews();
+    setAdding(false);
+    navigation.navigate('Feed', { refresh: true });
   };
 
   const onDelete = (id) => {
+    const confirm = Platform.OS === 'web'
+      ? window.confirm('Eliminar esta fuente?')
+      : new Promise(resolve => {
+          Alert.alert('Confirmar', 'Eliminar esta fuente?', [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
     if (Platform.OS === 'web') {
-      if (!confirm('Eliminar esta fuente?')) return;
-    } else {
-      Alert.alert('Confirmar', 'Eliminar esta fuente?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: async () => {
-          await deleteFuente(id); await load();
-        }},
-      ]);
-      return;
+      if (!confirm) return;
+      deleteFuente(id).then(load);
     }
-    deleteFuente(id).then(load);
   };
 
   const onToggle = async (id) => {
     await toggleFuente(id); await load();
   };
 
+  const s = makeStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Fuentes RSS</Text>
-        <Text style={styles.sub}>De dónde se obtienen las noticias</Text>
+    <View style={s.container}>
+      <View style={s.header}>
+        <Text style={s.title}>Fuentes RSS</Text>
+        <Text style={s.sub}>De dónde se obtienen las noticias</Text>
       </View>
-      <View style={styles.form}>
-        <TextInput style={styles.input} placeholder="Nombre" value={name} onChangeText={setName} />
-        <TextInput style={[styles.input, { flex: 2 }]} placeholder="URL del feed RSS" value={url} onChangeText={setUrl} onSubmitEditing={onAdd} />
-        <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
-          <Text style={styles.addBtnText}>Agregar</Text>
+      <View style={s.form}>
+        <TextInput style={s.input} placeholder="Nombre" placeholderTextColor={colors.text3} value={name} onChangeText={setName} />
+        <TextInput style={[s.input, { flex: 2 }]} placeholder="URL del feed RSS" placeholderTextColor={colors.text3} value={url} onChangeText={setUrl} onSubmitEditing={onAdd} />
+        <TouchableOpacity style={[s.addBtn, adding && { opacity: 0.5 }]} onPress={onAdd} disabled={adding}>
+          {adding ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.addBtnText}>Agregar</Text>}
         </TouchableOpacity>
       </View>
       <FlatList
         data={fuentes}
         keyExtractor={item => item._id || item.id?.toString()}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={s.list}
         renderItem={({ item }) => (
-          <View style={styles.item}>
-            <View style={styles.info}>
-              <Text style={styles.name}>{item.nombre}</Text>
-              <Text style={styles.url} numberOfLines={1}>{item.url}</Text>
+          <View style={s.item}>
+            <View style={s.info}>
+              <Text style={s.name}>{item.nombre}</Text>
+              <Text style={s.url} numberOfLines={1}>{item.url}</Text>
             </View>
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.toggleBtn, item.activo ? styles.active : styles.inactive]} onPress={() => onToggle(item._id || item.id)}>
-                <Text style={styles.toggleText}>{item.activo ? 'Activo' : 'Inactivo'}</Text>
+            <View style={s.actions}>
+              <TouchableOpacity style={[s.toggleBtn, item.activo ? s.active : s.inactive]} onPress={() => onToggle(item._id || item.id)}>
+                <Text style={s.toggleText}>{item.activo ? 'Activo' : 'Inactivo'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
-                <Text style={styles.deleteText}>✕</Text>
+              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
+                <Text style={s.deleteText}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -85,25 +96,27 @@ export default function SourcesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { paddingHorizontal: 16, paddingTop: Platform.OS === 'web' ? 16 : 60, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  title: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
-  sub: { fontSize: 13, color: '#666', marginTop: 4 },
-  form: { flexDirection: 'row', padding: 12, gap: 8 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, backgroundColor: '#fff' },
-  addBtn: { backgroundColor: '#1d9bf0', borderRadius: 8, paddingHorizontal: 16, justifyContent: 'center' },
-  addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  list: { padding: 12 },
-  item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: '#e8e8e8' },
-  info: { flex: 1, marginRight: 12 },
-  name: { fontSize: 15, fontWeight: '500' },
-  url: { fontSize: 11, color: '#999', marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: '#ddd' },
-  active: { borderColor: '#2ecc71' },
-  inactive: { borderColor: '#ddd' },
-  toggleText: { fontSize: 12, fontWeight: '500', color: '#666' },
-  deleteBtn: { paddingHorizontal: 8, justifyContent: 'center' },
-  deleteText: { fontSize: 16, color: '#e74c3c' },
-});
+function makeStyles(colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    header: { paddingHorizontal: 16, paddingTop: Platform.OS === 'web' ? 16 : 60, paddingBottom: 12, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+    title: { fontSize: 22, fontWeight: '700', color: colors.text },
+    sub: { fontSize: 13, color: colors.text2, marginTop: 4 },
+    form: { flexDirection: 'row', padding: 12, gap: 8 },
+    input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, backgroundColor: colors.surface2, color: colors.text },
+    addBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 16, justifyContent: 'center', minWidth: 70 },
+    addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+    list: { padding: 12 },
+    item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: 8, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: colors.border },
+    info: { flex: 1, marginRight: 12 },
+    name: { fontSize: 15, fontWeight: '500', color: colors.text },
+    url: { fontSize: 11, color: colors.text3, marginTop: 2 },
+    actions: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+    toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: colors.border },
+    active: { borderColor: colors.success },
+    inactive: { borderColor: colors.border },
+    toggleText: { fontSize: 12, fontWeight: '500', color: colors.text2 },
+    deleteBtn: { paddingHorizontal: 8, justifyContent: 'center' },
+    deleteText: { fontSize: 16, color: colors.danger },
+  });
+}

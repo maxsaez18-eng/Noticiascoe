@@ -2,6 +2,14 @@ node_modules/
 data/database.json
 .env
 app/node_modules/
-app/dist/
 app/.expo/
+app/dist-test/
 *.log
+app/App.minimal-test.js
+app/App.test-*.js
+app/TestApp.js
+app/App.js.backup
+app/App.js.full
+app/notifications.js
+app/components/
+app/theme.js

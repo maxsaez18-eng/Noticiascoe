@@ -1,43 +1,63 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Platform, Text } from 'react-native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+
+import { ThemeProvider, useTheme } from './theme';
+import { initNotifications, startPolling } from './notifications';
 
 import FeedScreen from './screens/FeedScreen';
 import KeywordsScreen from './screens/KeywordsScreen';
 import SourcesScreen from './screens/SourcesScreen';
 import StatsScreen from './screens/StatsScreen';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const Tab = createBottomTabNavigator();
 
-function getIcon(name, focused) {
-  const map = {
-    Feed: focused ? 'newspaper' : 'newspaper-outline',
-    Keywords: focused ? 'pricetags' : 'pricetags-outline',
-    Sources: focused ? 'radio' : 'radio-outline',
-    Stats: focused ? 'stats-chart' : 'stats-chart-outline',
-  };
-  return map[name] || 'ellipse';
-}
+const icons = {
+  Feed: '⊙',
+  Keywords: '#',
+  Sources: '◎',
+  Stats: '⚙',
+};
 
-export default function App() {
+function AppContent() {
+  const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    initNotifications();
+    startPolling();
+  }, []);
+
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" />
+    <NavigationContainer
+      theme={{
+        dark: isDark,
+        colors: {
+          primary: colors.accent,
+          background: colors.bg,
+          card: colors.surface,
+          text: colors.text,
+          border: colors.border,
+          notification: colors.accent,
+        },
+        fonts: DefaultTheme.fonts,
+      }}
+    >
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons name={getIcon(route.name, focused)} size={size} color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color, lineHeight: size + 4 }}>{icons[route.name] || '?'}</Text>
           ),
-          tabBarActiveTintColor: '#1d9bf0',
-          tabBarInactiveTintColor: '#999',
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.text3,
           tabBarStyle: {
-            backgroundColor: '#fff',
+            backgroundColor: colors.surface,
             borderTopWidth: 1,
-            borderTopColor: '#e0e0e0',
+            borderTopColor: colors.border,
             paddingBottom: Platform.OS === 'ios' ? 20 : 8,
             paddingTop: 8,
             height: Platform.OS === 'ios' ? 80 : 60,
@@ -48,8 +68,18 @@ export default function App() {
         <Tab.Screen name="Feed" component={FeedScreen} options={{ tabBarLabel: 'Feed' }} />
         <Tab.Screen name="Keywords" component={KeywordsScreen} options={{ tabBarLabel: 'Palabras' }} />
         <Tab.Screen name="Sources" component={SourcesScreen} options={{ tabBarLabel: 'Fuentes' }} />
-        <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: 'Stats' }} />
+        <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: 'Ajustes' }} />
       </Tab.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }

@@ -106,7 +106,8 @@ module.exports = {
 
   async getNoticias(limit = 50, offset = 0) {
     ensureReady();
-    return Noticia.find().sort({ fecha_publicacion: -1 }).skip(offset).limit(limit).lean();
+    const items = await Noticia.find().sort({ fecha_publicacion: -1 }).skip(offset).limit(limit).lean();
+    return items.map(item => ({ ...item, id: item._id.toString() }));
   },
 
   async getNoticiasCount() {
@@ -129,6 +130,11 @@ module.exports = {
   async getUnreadCount() {
     ensureReady();
     return Noticia.countDocuments({ leido: false });
+  },
+
+  async markMultipleLeido(ids, leido = true) {
+    ensureReady();
+    await Noticia.updateMany({ _id: { $in: ids } }, { leido });
   },
 
   async getUltimaObtencion() {

@@ -14,6 +14,16 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/app-no
 
 app.use(express.json());
 
+// Serve Expo web build with correct MIME types for fonts
+const webBuild = path.join(__dirname, 'app', 'dist');
+app.use(express.static(webBuild, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.ttf')) res.setHeader('Content-Type', 'font/ttf');
+    if (filePath.endsWith('.woff')) res.setHeader('Content-Type', 'font/woff');
+    if (filePath.endsWith('.woff2')) res.setHeader('Content-Type', 'font/woff2');
+  }
+}));
+
 // WebSocket
 const clients = new Set();
 
@@ -28,10 +38,6 @@ function broadcast(data) {
     if (client.readyState === 1) client.send(msg);
   }
 }
-
-// Serve Expo web build if exists
-const webBuild = path.join(__dirname, 'app', 'dist');
-app.use(express.static(webBuild));
 
 // API endpoints
 
@@ -55,6 +61,14 @@ app.get('/api/noticias', async (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const offset = parseInt(req.query.offset) || 0;
   res.json(await fetcher.getNoticias(limit, offset));
+});
+
+app.patch('/api/noticias/bulk/leer', async (req, res) => {
+  const { ids, leido } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Se requiere un array de ids' });
+  await fetcher.markMultipleLeido(ids, leido !== false);
+  broadcast({ type: 'bulk_update' });
+  res.json({ ok: true });
 });
 
 app.patch('/api/noticias/:id/leer', async (req, res) => {
@@ -114,6 +128,14 @@ app.get('/api/fuentes', async (req, res) => {
 app.post('/api/fuentes', async (req, res) => {
   const { nombre, url, tipo } = req.body;
   if (!nombre || !url) return res.status(400).json({ error: 'Nombre y URL requeridos' });
+
+  // Validate URL is a parseable RSS feed
+  try {
+    await fetcher.testFeed(url);
+  } catch (e) {
+    return res.status(400).json({ error: 'No se pudo leer el feed RSS: ' + e.message });
+  }
+
   const ok = await fetcher.addFuente(nombre, url, tipo);
   if (!ok) return res.status(409).json({ error: 'La URL ya existe' });
   broadcast({ type: 'config_update' });

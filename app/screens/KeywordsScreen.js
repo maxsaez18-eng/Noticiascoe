@@ -3,11 +3,17 @@ import {
   View, Text, FlatList, TouchableOpacity, TextInput,
   StyleSheet, Alert, Platform,
 } from 'react-native';
+import { useTheme } from '../theme';
 import { getKeywords, addKeyword, deleteKeyword, toggleKeyword } from '../api';
 
 export default function KeywordsScreen() {
+  const { colors } = useTheme();
   const [keywords, setKeywords] = useState([]);
   const [input, setInput] = useState('');
+  const [batchInput, setBatchInput] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [batchResult, setBatchResult] = useState(null);
 
   const load = async () => setKeywords(await getKeywords());
   useEffect(() => { load(); }, []);
@@ -21,6 +27,39 @@ export default function KeywordsScreen() {
       if (Platform.OS === 'web') alert(res.error);
       else Alert.alert('Error', res.error);
     }
+    await load();
+  };
+
+  const onAddBatch = async () => {
+    const raw = batchInput.trim();
+    if (!raw) return;
+
+    const items = raw
+      .split(/[\n,;]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (items.length === 0) return;
+
+    setProcessing(true);
+    setBatchResult(null);
+    let added = 0, existed = 0, errors = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      setProgress(`${i + 1}/${items.length}: "${items[i].slice(0, 30)}"`);
+      try {
+        const res = await addKeyword(items[i]);
+        if (res.error) existed++;
+        else added++;
+      } catch {
+        errors++;
+      }
+    }
+
+    setBatchInput('');
+    setProcessing(false);
+    setProgress('');
+    setBatchResult({ added, existed, errors, total: items.length });
     await load();
   };
 
@@ -43,42 +82,78 @@ export default function KeywordsScreen() {
     await toggleKeyword(id); await load();
   };
 
+  const s = makeStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Palabras Clave</Text>
-        <Text style={styles.sub}>Las noticias se filtran por estas palabras</Text>
+    <View style={s.container}>
+      <View style={s.header}>
+        <Text style={s.title}>Palabras Clave</Text>
+        <Text style={s.sub}>Las noticias se filtran por estas palabras</Text>
       </View>
-      <View style={styles.form}>
+
+      <View style={s.form}>
         <TextInput
-          style={styles.input}
+          style={s.input}
           placeholder="Ej: inteligencia artificial"
+          placeholderTextColor={colors.text3}
           value={input}
           onChangeText={setInput}
           onSubmitEditing={onAdd}
         />
-        <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
-          <Text style={styles.addBtnText}>Agregar</Text>
+        <TouchableOpacity style={s.addBtn} onPress={onAdd}>
+          <Text style={s.addBtnText}>Agregar</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={s.batchSection}>
+        <Text style={s.batchLabel}>Agregar múltiples (una por línea o separadas por coma)</Text>
+        <TextInput
+          style={s.batchInput}
+          placeholder={`inteligencia artificial\nmachine learning\nblockchain`}
+          placeholderTextColor={colors.text3}
+          multiline
+          value={batchInput}
+          onChangeText={setBatchInput}
+        />
+        {processing ? (
+          <Text style={s.progressText}>{progress}</Text>
+        ) : (
+          <TouchableOpacity
+            style={[s.batchBtn, !batchInput.trim() && { opacity: 0.4 }]}
+            onPress={onAddBatch}
+            disabled={!batchInput.trim()}
+          >
+            <Text style={s.batchBtnText}>Agregar múltiples</Text>
+          </TouchableOpacity>
+        )}
+        {batchResult && (
+          <View style={s.resultBox}>
+            <Text style={s.resultText}>
+              +{batchResult.added} agregadas | {batchResult.existed} ya existían
+              {batchResult.errors > 0 ? ` | ${batchResult.errors} errores` : ''}
+            </Text>
+          </View>
+        )}
+      </View>
+
       <FlatList
         data={keywords}
         keyExtractor={item => item._id || item.id?.toString()}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={s.list}
         renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Text style={styles.itemText}>{item.palabra}</Text>
-            <View style={styles.actions}>
+          <View style={s.item}>
+            <Text style={s.itemText}>{item.palabra}</Text>
+            <View style={s.actions}>
               <TouchableOpacity
-                style={[styles.toggleBtn, item.activo ? styles.active : styles.inactive]}
+                style={[s.toggleBtn, item.activo ? s.active : s.inactive]}
                 onPress={() => onToggle(item._id || item.id)}
               >
-                <Text style={styles.toggleText}>
+                <Text style={s.toggleText}>
                   {item.activo ? 'Activo' : 'Inactivo'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
-                <Text style={styles.deleteText}>✕</Text>
+              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
+                <Text style={s.deleteText}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -88,23 +163,33 @@ export default function KeywordsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { paddingHorizontal: 16, paddingTop: Platform.OS === 'web' ? 16 : 60, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  title: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
-  sub: { fontSize: 13, color: '#666', marginTop: 4 },
-  form: { flexDirection: 'row', padding: 12, gap: 8 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, backgroundColor: '#fff' },
-  addBtn: { backgroundColor: '#1d9bf0', borderRadius: 8, paddingHorizontal: 20, justifyContent: 'center' },
-  addBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  list: { padding: 12 },
-  item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: '#e8e8e8' },
-  itemText: { fontSize: 15, fontWeight: '500' },
-  actions: { flexDirection: 'row', gap: 6 },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: '#ddd' },
-  active: { borderColor: '#2ecc71' },
-  inactive: { borderColor: '#ddd' },
-  toggleText: { fontSize: 12, fontWeight: '500', color: '#666' },
-  deleteBtn: { paddingHorizontal: 8, justifyContent: 'center' },
-  deleteText: { fontSize: 16, color: '#e74c3c' },
-});
+function makeStyles(colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    header: { paddingHorizontal: 16, paddingTop: Platform.OS === 'web' ? 16 : 60, paddingBottom: 12, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+    title: { fontSize: 22, fontWeight: '700', color: colors.text },
+    sub: { fontSize: 13, color: colors.text2, marginTop: 4 },
+    form: { flexDirection: 'row', padding: 12, gap: 8, paddingBottom: 4 },
+    input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, backgroundColor: colors.surface2, color: colors.text },
+    addBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 20, justifyContent: 'center' },
+    addBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+    batchSection: { paddingHorizontal: 12, paddingBottom: 8 },
+    batchLabel: { fontSize: 12, color: colors.text2, marginBottom: 4 },
+    batchInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, backgroundColor: colors.surface2, color: colors.text, minHeight: 80, textAlignVertical: 'top' },
+    batchBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+    batchBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+    progressText: { textAlign: 'center', color: colors.accent, fontSize: 13, marginTop: 8, fontWeight: '500' },
+    resultBox: { backgroundColor: colors.surface, borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: colors.success },
+    resultText: { fontSize: 13, color: colors.text, textAlign: 'center' },
+    list: { padding: 12 },
+    item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: 8, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: colors.border },
+    itemText: { fontSize: 15, fontWeight: '500', color: colors.text },
+    actions: { flexDirection: 'row', gap: 6 },
+    toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: colors.border },
+    active: { borderColor: colors.success },
+    inactive: { borderColor: colors.border },
+    toggleText: { fontSize: 12, fontWeight: '500', color: colors.text2 },
+    deleteBtn: { paddingHorizontal: 8, justifyContent: 'center' },
+    deleteText: { fontSize: 16, color: colors.danger },
+  });
+}

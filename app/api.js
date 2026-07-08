@@ -1,13 +1,24 @@
-// Change this to your Render URL when deployed
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = '';
 
 export async function getNoticias(limit = 50, offset = 0) {
-  const res = await fetch(`${BASE_URL}/api/noticias?limit=${limit}&offset=${offset}`);
-  return res.json();
+  try {
+    const res = await fetch(`${BASE_URL}/api/noticias?limit=${limit}&offset=${offset}`, { cache: 'no-cache' });
+    return await res.json();
+  } catch { return []; }
 }
 
 export async function markLeido(id) {
-  await fetch(`${BASE_URL}/api/noticias/${id}/leer`, { method: 'PATCH' });
+  try { await fetch(`${BASE_URL}/api/noticias/${id}/leer`, { method: 'PATCH' }); } catch {}
+}
+
+export async function markBulkLeido(ids, leido = true) {
+  try {
+    await fetch(`${BASE_URL}/api/noticias/bulk/leer`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, leido }),
+    });
+  } catch {}
 }
 
 export async function toggleFavorito(id) {
@@ -21,8 +32,10 @@ export async function getStats() {
 }
 
 export async function fetchNews() {
-  const res = await fetch(`${BASE_URL}/api/fetch`, { method: 'POST' });
-  return res.json();
+  try {
+    const res = await fetch(`${BASE_URL}/api/fetch`, { method: 'POST' });
+    return await res.json();
+  } catch { return { error: 'fetch failed' }; }
 }
 
 export async function getKeywords() {
@@ -40,11 +53,11 @@ export async function addKeyword(palabra) {
 }
 
 export async function deleteKeyword(id) {
-  await fetch(`${BASE_URL}/api/keywords/${id}`, { method: 'DELETE' });
+  try { await fetch(`${BASE_URL}/api/keywords/${id}`, { method: 'DELETE' }); } catch {}
 }
 
 export async function toggleKeyword(id) {
-  await fetch(`${BASE_URL}/api/keywords/${id}/toggle`, { method: 'POST' });
+  try { await fetch(`${BASE_URL}/api/keywords/${id}/toggle`, { method: 'POST' }); } catch {}
 }
 
 export async function getFuentes() {
@@ -62,9 +75,9 @@ export async function addFuente(nombre, url, tipo) {
 }
 
 export async function deleteFuente(id) {
-  await fetch(`${BASE_URL}/api/fuentes/${id}`, { method: 'DELETE' });
+  try { await fetch(`${BASE_URL}/api/fuentes/${id}`, { method: 'DELETE' }); } catch {}
 }
 
 export async function toggleFuente(id) {
-  await fetch(`${BASE_URL}/api/fuentes/${id}/toggle`, { method: 'POST' });
+  try { await fetch(`${BASE_URL}/api/fuentes/${id}/toggle`, { method: 'POST' }); } catch {}
 }
