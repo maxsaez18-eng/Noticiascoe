@@ -97,32 +97,50 @@ async function fetchAll() {
   const fuentes = await db.getActiveFuentes();
   const todas = [];
 
-  // 1. Fetch from manually-added sources (no keyword filter — all articles pass)
-  for (const fuente of fuentes) {
-    console.log(`Fetching source: ${fuente.nombre}...`);
-    const items = await fetchFuente(fuente);
-    todas.push(...items);
+  // 1. Fetch from manually-added sources in parallel
+  console.log(`Fetching ${fuentes.length} sources...`);
+  const sourceResults = await Promise.allSettled(
+    fuentes.map(fuente => fetchFuente(fuente))
+  );
+  for (const r of sourceResults) {
+    if (r.status === 'fulfilled') todas.push(...r.value);
   }
 
-  // 2. Search by each active keyword via Google News RSS + Bing News RSS
+  // 2. Search all keywords in both engines in parallel
   const palabras = await db.getActiveKeywords();
-  for (const palabra of palabras) {
-    for (const source of ['google', 'bing']) {
-      console.log(`Searching keyword "${palabra}" (${source})...`);
-      const items = await searchByKeyword(palabra, source);
-      const filtered = items.filter(a => {
-        const text = `${a.titulo} ${a.descripcion || ''}`.toLowerCase();
-        return text.includes(palabra.toLowerCase());
-      });
-      todas.push(...filtered);
+  if (palabras.length > 0) {
+    console.log(`Searching ${palabras.length} keywords in Google + Bing...`);
+    const searchPromises = [];
+    for (const palabra of palabras) {
+      for (const source of ['google', 'bing']) {
+        searchPromises.push(
+          searchByKeyword(palabra, source).then(items => {
+            return items.filter(a => {
+              const text = `${a.titulo} ${a.descripcion || ''}`.toLowerCase();
+              return text.includes(palabra.toLowerCase());
+            });
+          })
+        );
+      }
+    }
+    const searchResults = await Promise.allSettled(searchPromises);
+    for (const r of searchResults) {
+      if (r.status === 'fulfilled') todas.push(...r.value);
     }
   }
 
-  // 3. Translate (best-effort, skips on timeout/rate-limit)
-  let traducidas = [];
-  for (const item of todas) {
-    const t = await translateArticle(item);
-    traducidas.push(t);
+  // 3. Translate articles in parallel (concurrency = 5)
+  console.log(`Translating ${todas.length} articles...`);
+  const traducidas = [];
+  const CONCURRENCY = 5;
+  for (let i = 0; i < todas.length; i += CONCURRENCY) {
+    const batch = todas.slice(i, i + CONCURRENCY);
+    const translations = await Promise.allSettled(
+      batch.map(item => translateArticle(item))
+    );
+    for (const t of translations) {
+      traducidas.push(t.status === 'fulfilled' ? t.value : t.reason);
+    }
   }
 
   // 4. Save to database (deduplicated by URL)
