@@ -30,6 +30,7 @@ const icons = {
 function AppContent() {
   const { colors, isDark } = useTheme();
   const { user, loading, token, isAdmin } = useAuth();
+  const isWeb = Platform.OS === 'web';
 
   useEffect(() => {
     if (token) setCachedToken(token);
@@ -39,19 +40,13 @@ function AppContent() {
     }
   }, [loading, token]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
-  }
-
-  if (!user) {
-    return <LoginScreen />;
-  }
-
-  return (
+  const content = loading ? (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
+      <ActivityIndicator size="large" color={colors.accent} />
+    </View>
+  ) : !user ? (
+    <LoginScreen />
+  ) : (
     <NavigationContainer
       theme={{
         dark: isDark,
@@ -82,6 +77,8 @@ function AppContent() {
             paddingBottom: Platform.OS === 'ios' ? 20 : 8,
             paddingTop: 8,
             height: Platform.OS === 'ios' ? 80 : 60,
+            maxWidth: isWeb ? 680 : undefined,
+            alignSelf: isWeb ? 'center' : undefined,
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         })}
@@ -95,6 +92,14 @@ function AppContent() {
         )}
       </Tab.Navigator>
     </NavigationContainer>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: isWeb ? 'center' : undefined }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 680 : undefined }}>
+        {content}
+      </View>
+    </View>
   );
 }
 
