@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView,
 } from 'react-native';
 import { useTheme } from '../theme';
+import { useAuth } from '../context/AuthContext';
 import { getStats } from '../api';
 
 const statConfig = [
@@ -20,8 +21,9 @@ const THEME_OPTIONS = [
   { label: 'Oscuro', value: 'dark' },
 ];
 
-export default function StatsScreen() {
+export default function StatsScreen({ navigation }) {
   const { colors, isDark, mode, setThemeMode } = useTheme();
+  const { user, logout, isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -38,6 +40,29 @@ export default function StatsScreen() {
       <View style={s.header}>
         <Text style={s.title}>Ajustes</Text>
       </View>
+
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Usuario</Text>
+        <View style={s.userInfo}>
+          <Text style={s.username}>{user?.username}</Text>
+          <Text style={s.roleBadge}>{user?.role}</Text>
+        </View>
+        <TouchableOpacity style={s.logoutBtn} onPress={logout}>
+          <Text style={s.logoutText}>Cerrar sesión</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isAdmin && (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Administración</Text>
+          <TouchableOpacity
+            style={s.adminBtn}
+            onPress={() => navigation.navigate('Users')}
+          >
+            <Text style={s.adminBtnText}>Gestionar Usuarios</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={s.section}>
         <Text style={s.sectionTitle}>Tema</Text>
@@ -84,6 +109,23 @@ function makeStyles(colors) {
     title: { fontSize: 22, fontWeight: '700', color: colors.text },
     section: { padding: 16 },
     sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 12 },
+    userInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    username: { fontSize: 16, fontWeight: '600', color: colors.text },
+    roleBadge: {
+      fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2,
+      borderRadius: 4, backgroundColor: colors.accent + '20', color: colors.accent,
+      overflow: 'hidden',
+    },
+    logoutBtn: {
+      backgroundColor: colors.danger, borderRadius: 8, paddingVertical: 10,
+      alignItems: 'center',
+    },
+    logoutText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+    adminBtn: {
+      backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 12,
+      alignItems: 'center',
+    },
+    adminBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
     themeRow: { flexDirection: 'row', gap: 8 },
     themeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center', backgroundColor: colors.surface2 },
     themeBtnActive: { borderColor: colors.accent, backgroundColor: colors.accent + '18' },

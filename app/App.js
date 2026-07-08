@@ -1,16 +1,20 @@
 import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Platform, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Text } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { ThemeProvider, useTheme } from './theme';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { setCachedToken } from './api';
 import { initNotifications, startPolling } from './notifications';
 
 import FeedScreen from './screens/FeedScreen';
 import KeywordsScreen from './screens/KeywordsScreen';
 import SourcesScreen from './screens/SourcesScreen';
 import StatsScreen from './screens/StatsScreen';
+import UsersScreen from './screens/UsersScreen';
+import LoginScreen from './screens/LoginScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const Tab = createBottomTabNavigator();
@@ -20,15 +24,32 @@ const icons = {
   Keywords: '#',
   Sources: '◎',
   Stats: '⚙',
+  Users: '👥',
 };
 
 function AppContent() {
   const { colors, isDark } = useTheme();
+  const { user, loading, token, isAdmin } = useAuth();
 
   useEffect(() => {
-    initNotifications();
-    startPolling();
-  }, []);
+    if (token) setCachedToken(token);
+    if (!loading) {
+      initNotifications();
+      startPolling();
+    }
+  }, [loading, token]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <NavigationContainer
@@ -69,6 +90,9 @@ function AppContent() {
         <Tab.Screen name="Keywords" component={KeywordsScreen} options={{ tabBarLabel: 'Palabras' }} />
         <Tab.Screen name="Sources" component={SourcesScreen} options={{ tabBarLabel: 'Fuentes' }} />
         <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: 'Ajustes' }} />
+        {isAdmin && (
+          <Tab.Screen name="Users" component={UsersScreen} options={{ tabBarLabel: 'Usuarios' }} />
+        )}
       </Tab.Navigator>
     </NavigationContainer>
   );
@@ -78,7 +102,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </ErrorBoundary>
     </ThemeProvider>
   );

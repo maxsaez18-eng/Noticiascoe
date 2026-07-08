@@ -1,9 +1,11 @@
 const express = require('express');
 const http = require('http');
+const bcrypt = require('bcryptjs');
 const { WebSocketServer } = require('ws');
 const path = require('path');
 const db = require('./database');
 const fetcher = require('./fetcher');
+const { generateToken, verifyToken, optionalToken, requireRole } = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,7 +16,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/app-no
 
 app.use(express.json());
 
-// Serve Expo web build with correct MIME types for fonts
+// Serve Expo web build
 const webBuild = path.join(__dirname, 'app', 'dist');
 app.use(express.static(webBuild, {
   setHeaders(res, filePath) {
@@ -39,8 +41,6 @@ function broadcast(data) {
   }
 }
 
-// API endpoints
-
 async function tryAutoFetch() {
   try {
     const ultima = await fetcher.getUltimaObtencion();
@@ -56,24 +56,72 @@ async function tryAutoFetch() {
   return null;
 }
 
-app.get('/api/noticias', async (req, res) => {
+// --- Auth routes ---
+
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  const user = await db.findUserByUsername(username);
+  if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+  const ok = await bcrypt.compare(password, user.password);
+  if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
+  const token = generateToken(user);
+  res.json({ token, user: { id: user._id.toString(), username: user.username, role: user.role } });
+});
+
+app.post('/api/auth/register', verifyToken, requireRole('admin'), async (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  try {
+    const user = await db.createUser(username, password, role || 'viewer');
+    res.json({ user: { id: user._id.toString(), username: user.username, role: user.role } });
+  } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: 'El usuario ya existe' });
+    throw e;
+  }
+});
+
+app.get('/api/auth/users', verifyToken, requireRole('admin'), async (req, res) => {
+  res.json(await db.getUsers());
+});
+
+app.patch('/api/auth/users/:id', verifyToken, requireRole('admin'), async (req, res) => {
+  const { password, role } = req.body;
+  const updates = {};
+  if (password) updates.password = password;
+  if (role) updates.role = role;
+  const user = await db.updateUser(req.params.id, updates);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.json({ user: { id: user._id.toString(), username: user.username, role: user.role } });
+});
+
+app.get('/api/auth/me', verifyToken, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// --- API endpoints ---
+
+app.get('/api/noticias', optionalToken, async (req, res) => {
   await tryAutoFetch();
   const limit = parseInt(req.query.limit) || 50;
   const offset = parseInt(req.query.offset) || 0;
   const search = req.query.search || '';
-  res.json(await fetcher.getNoticias(limit, offset, search));
+  const userId = req.user ? req.user.id : null;
+  res.json(await fetcher.getNoticias(limit, offset, search, userId));
 });
 
-app.patch('/api/noticias/bulk/leer', async (req, res) => {
+app.patch('/api/noticias/bulk/leer', optionalToken, async (req, res) => {
   const { ids, leido } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Se requiere un array de ids' });
-  await fetcher.markMultipleLeido(ids, leido !== false);
+  const userId = req.user ? req.user.id : null;
+  await fetcher.markMultipleLeido(ids, leido !== false, userId);
   broadcast({ type: 'bulk_update' });
   res.json({ ok: true });
 });
 
-app.patch('/api/noticias/:id/leer', async (req, res) => {
-  await fetcher.markLeido(req.params.id);
+app.patch('/api/noticias/:id/leer', optionalToken, async (req, res) => {
+  const userId = req.user ? req.user.id : null;
+  await fetcher.markLeido(req.params.id, userId);
   res.json({ ok: true });
 });
 
@@ -82,8 +130,9 @@ app.post('/api/noticias/:id/favorito', async (req, res) => {
   res.json({ favorito: estado });
 });
 
-app.get('/api/stats', async (req, res) => {
-  res.json(await fetcher.getStats());
+app.get('/api/stats', optionalToken, async (req, res) => {
+  const userId = req.user ? req.user.id : null;
+  res.json(await fetcher.getStats(userId));
 });
 
 app.get('/api/config', async (req, res) => {
@@ -101,7 +150,7 @@ app.get('/api/keywords', async (req, res) => {
   res.json(await fetcher.getKeywords());
 });
 
-app.post('/api/keywords', async (req, res) => {
+app.post('/api/keywords', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   const { palabra } = req.body;
   if (!palabra) return res.status(400).json({ error: 'Palabra requerida' });
   const ok = await fetcher.addKeyword(palabra);
@@ -110,13 +159,13 @@ app.post('/api/keywords', async (req, res) => {
   res.json(await fetcher.getKeywords());
 });
 
-app.delete('/api/keywords/:id', async (req, res) => {
+app.delete('/api/keywords/:id', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   await fetcher.removeKeyword(req.params.id);
   broadcast({ type: 'config_update' });
   res.json({ ok: true });
 });
 
-app.post('/api/keywords/:id/toggle', async (req, res) => {
+app.post('/api/keywords/:id/toggle', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   await fetcher.toggleKeyword(req.params.id);
   broadcast({ type: 'config_update' });
   res.json({ ok: true });
@@ -126,30 +175,27 @@ app.get('/api/fuentes', async (req, res) => {
   res.json(await fetcher.getFuentes());
 });
 
-app.post('/api/fuentes', async (req, res) => {
+app.post('/api/fuentes', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   const { nombre, url, tipo } = req.body;
   if (!nombre || !url) return res.status(400).json({ error: 'Nombre y URL requeridos' });
-
-  // Validate URL is a parseable RSS feed
   try {
     await fetcher.testFeed(url);
   } catch (e) {
     return res.status(400).json({ error: 'No se pudo leer el feed RSS: ' + e.message });
   }
-
   const ok = await fetcher.addFuente(nombre, url, tipo);
   if (!ok) return res.status(409).json({ error: 'La URL ya existe' });
   broadcast({ type: 'config_update' });
   res.json(await fetcher.getFuentes());
 });
 
-app.delete('/api/fuentes/:id', async (req, res) => {
+app.delete('/api/fuentes/:id', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   await fetcher.removeFuente(req.params.id);
   broadcast({ type: 'config_update' });
   res.json({ ok: true });
 });
 
-app.post('/api/fuentes/:id/toggle', async (req, res) => {
+app.post('/api/fuentes/:id/toggle', verifyToken, requireRole('admin', 'editor'), async (req, res) => {
   await fetcher.toggleFuente(req.params.id);
   broadcast({ type: 'config_update' });
   res.json({ ok: true });
@@ -175,7 +221,7 @@ app.post('/api/cron', async (req, res) => {
   }
 });
 
-// SPA fallback for web build
+// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(webBuild, 'index.html'), (err) => {
     if (err) res.json({ error: 'Not found', api: 'available at /api/*' });
@@ -186,7 +232,6 @@ async function start() {
   await db.connect(MONGODB_URI);
   console.log('Conectado a MongoDB');
 
-  // Auto-fetch cada 6 horas
   const SIX_HOURS = 6 * 60 * 60 * 1000;
   setInterval(async () => {
     console.log('[Cron] Auto-fetch cada 6h...');

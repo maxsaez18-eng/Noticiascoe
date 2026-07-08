@@ -4,10 +4,12 @@ import {
   StyleSheet, Alert, Platform,
 } from 'react-native';
 import { useTheme } from '../theme';
+import { useAuth } from '../context/AuthContext';
 import { getKeywords, addKeyword, deleteKeyword, toggleKeyword } from '../api';
 
 export default function KeywordsScreen() {
   const { colors } = useTheme();
+  const { isEditor } = useAuth();
   const [keywords, setKeywords] = useState([]);
   const [input, setInput] = useState('');
   const [batchInput, setBatchInput] = useState('');
@@ -91,50 +93,54 @@ export default function KeywordsScreen() {
         <Text style={s.sub}>Las noticias se filtran por estas palabras</Text>
       </View>
 
-      <View style={s.form}>
-        <TextInput
-          style={s.input}
-          placeholder="Ej: inteligencia artificial"
-          placeholderTextColor={colors.text3}
-          value={input}
-          onChangeText={setInput}
-          onSubmitEditing={onAdd}
-        />
-        <TouchableOpacity style={s.addBtn} onPress={onAdd}>
-          <Text style={s.addBtnText}>Agregar</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={s.batchSection}>
-        <Text style={s.batchLabel}>Agregar múltiples (una por línea o separadas por coma)</Text>
-        <TextInput
-          style={s.batchInput}
-          placeholder={`inteligencia artificial\nmachine learning\nblockchain`}
-          placeholderTextColor={colors.text3}
-          multiline
-          value={batchInput}
-          onChangeText={setBatchInput}
-        />
-        {processing ? (
-          <Text style={s.progressText}>{progress}</Text>
-        ) : (
-          <TouchableOpacity
-            style={[s.batchBtn, !batchInput.trim() && { opacity: 0.4 }]}
-            onPress={onAddBatch}
-            disabled={!batchInput.trim()}
-          >
-            <Text style={s.batchBtnText}>Agregar múltiples</Text>
-          </TouchableOpacity>
-        )}
-        {batchResult && (
-          <View style={s.resultBox}>
-            <Text style={s.resultText}>
-              +{batchResult.added} agregadas | {batchResult.existed} ya existían
-              {batchResult.errors > 0 ? ` | ${batchResult.errors} errores` : ''}
-            </Text>
+      {isEditor && (
+        <>
+          <View style={s.form}>
+            <TextInput
+              style={s.input}
+              placeholder="Ej: inteligencia artificial"
+              placeholderTextColor={colors.text3}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={onAdd}
+            />
+            <TouchableOpacity style={s.addBtn} onPress={onAdd}>
+              <Text style={s.addBtnText}>Agregar</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+
+          <View style={s.batchSection}>
+            <Text style={s.batchLabel}>Agregar múltiples (una por línea o separadas por coma)</Text>
+            <TextInput
+              style={s.batchInput}
+              placeholder={`inteligencia artificial\nmachine learning\nblockchain`}
+              placeholderTextColor={colors.text3}
+              multiline
+              value={batchInput}
+              onChangeText={setBatchInput}
+            />
+            {processing ? (
+              <Text style={s.progressText}>{progress}</Text>
+            ) : (
+              <TouchableOpacity
+                style={[s.batchBtn, !batchInput.trim() && { opacity: 0.4 }]}
+                onPress={onAddBatch}
+                disabled={!batchInput.trim()}
+              >
+                <Text style={s.batchBtnText}>Agregar múltiples</Text>
+              </TouchableOpacity>
+            )}
+            {batchResult && (
+              <View style={s.resultBox}>
+                <Text style={s.resultText}>
+                  +{batchResult.added} agregadas | {batchResult.existed} ya existían
+                  {batchResult.errors > 0 ? ` | ${batchResult.errors} errores` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        </>
+      )}
 
       <FlatList
         data={keywords}
@@ -152,9 +158,11 @@ export default function KeywordsScreen() {
                   {item.activo ? 'Activo' : 'Inactivo'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
-                <Text style={s.deleteText}>✕</Text>
-              </TouchableOpacity>
+              {isEditor && (
+                <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
+                  <Text style={s.deleteText}>✕</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}

@@ -4,10 +4,12 @@ import {
   StyleSheet, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../theme';
+import { useAuth } from '../context/AuthContext';
 import { getFuentes, addFuente, deleteFuente, toggleFuente, fetchNews } from '../api';
 
 export default function SourcesScreen({ navigation }) {
   const { colors } = useTheme();
+  const { isEditor } = useAuth();
   const [fuentes, setFuentes] = useState([]);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -64,13 +66,17 @@ export default function SourcesScreen({ navigation }) {
         <Text style={s.title}>Fuentes RSS</Text>
         <Text style={s.sub}>De dónde se obtienen las noticias</Text>
       </View>
-      <View style={s.form}>
-        <TextInput style={s.input} placeholder="Nombre" placeholderTextColor={colors.text3} value={name} onChangeText={setName} />
-        <TextInput style={[s.input, { flex: 2 }]} placeholder="URL del feed RSS" placeholderTextColor={colors.text3} value={url} onChangeText={setUrl} onSubmitEditing={onAdd} />
-        <TouchableOpacity style={[s.addBtn, adding && { opacity: 0.5 }]} onPress={onAdd} disabled={adding}>
-          {adding ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.addBtnText}>Agregar</Text>}
-        </TouchableOpacity>
-      </View>
+
+      {isEditor && (
+        <View style={s.form}>
+          <TextInput style={s.input} placeholder="Nombre" placeholderTextColor={colors.text3} value={name} onChangeText={setName} />
+          <TextInput style={[s.input, { flex: 2 }]} placeholder="URL del feed RSS" placeholderTextColor={colors.text3} value={url} onChangeText={setUrl} onSubmitEditing={onAdd} />
+          <TouchableOpacity style={[s.addBtn, adding && { opacity: 0.5 }]} onPress={onAdd} disabled={adding}>
+            {adding ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.addBtnText}>Agregar</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={fuentes}
         keyExtractor={item => item._id || item.id?.toString()}
@@ -85,9 +91,11 @@ export default function SourcesScreen({ navigation }) {
               <TouchableOpacity style={[s.toggleBtn, item.activo ? s.active : s.inactive]} onPress={() => onToggle(item._id || item.id)}>
                 <Text style={s.toggleText}>{item.activo ? 'Activo' : 'Inactivo'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
-                <Text style={s.deleteText}>✕</Text>
-              </TouchableOpacity>
+              {isEditor && (
+                <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item._id || item.id)}>
+                  <Text style={s.deleteText}>✕</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}

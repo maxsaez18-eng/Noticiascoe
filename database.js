@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/app-noticias';
-
-// --- Schemas ---
 
 const noticiaSchema = new mongoose.Schema({
   titulo:        { type: String, required: true },
@@ -15,6 +14,7 @@ const noticiaSchema = new mongoose.Schema({
   fecha_publicacion: { type: Date, default: Date.now },
   fecha_obtencion:   { type: Date, default: Date.now },
   leido:         { type: Boolean, default: false },
+  leidoPor:      [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   favorito:      { type: Boolean, default: false },
   titulo_original:    String,
   descripcion_original: String,
@@ -40,7 +40,13 @@ const configSchema = new mongoose.Schema({
   value: { type: mongoose.Schema.Types.Mixed },
 });
 
-let Noticia, Keyword, Fuente, Config;
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
+  role:     { type: String, enum: ['admin', 'editor', 'viewer'], default: 'viewer' },
+}, { timestamps: true });
+
+let Noticia, Keyword, Fuente, Config, User;
 
 async function connect(uri) {
   await mongoose.connect(uri);
@@ -48,7 +54,9 @@ async function connect(uri) {
   Keyword  = mongoose.model('Keyword', keywordSchema);
   Fuente   = mongoose.model('Fuente', fuenteSchema);
   Config   = mongoose.model('Config', configSchema);
+  User     = mongoose.model('User', userSchema);
   await seedDefaults();
+  await seedUsers();
 }
 
 async function seedDefaults() {
@@ -77,8 +85,42 @@ async function seedDefaults() {
   }
 }
 
+async function seedUsers() {
+  const count = await User.countDocuments();
+  if (count === 0) {
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
+    const hash = await bcrypt.hash(password, 10);
+    await User.create({ username: 'admin', password: hash, role: 'admin' });
+    console.log(`Usuario admin creado (password: ${password === process.env.ADMIN_PASSWORD ? 'de env' : 'admin123'})`);
+  }
+}
+
 function ensureReady() {
   if (!Noticia) throw new Error('Database not connected. Call connect() first.');
+}
+
+// --- Auth ---
+
+async function findUserByUsername(username) {
+  ensureReady();
+  return User.findOne({ username: username.toLowerCase().trim() });
+}
+
+async function createUser(username, password, role = 'viewer') {
+  ensureReady();
+  const hash = await bcrypt.hash(password, 10);
+  return User.create({ username: username.toLowerCase().trim(), password: hash, role });
+}
+
+async function updateUser(id, updates) {
+  ensureReady();
+  if (updates.password) updates.password = await bcrypt.hash(updates.password, 10);
+  return User.findByIdAndUpdate(id, updates, { new: true });
+}
+
+async function getUsers() {
+  ensureReady();
+  return User.find().select('-password').sort({ username: 1 }).lean();
 }
 
 module.exports = {
@@ -104,7 +146,7 @@ module.exports = {
     return true;
   },
 
-  async getNoticias(limit = 50, offset = 0, search = '') {
+  async getNoticias(limit = 50, offset = 0, search = '', userId = null) {
     ensureReady();
     let query = {};
     if (search) {
@@ -118,7 +160,12 @@ module.exports = {
       query = { $and: conditions };
     }
     const items = await Noticia.find(query).sort({ fecha_publicacion: -1 }).skip(offset).limit(limit).lean();
-    return items.map(item => ({ ...item, id: item._id.toString() }));
+    return items.map(item => {
+      const leido = userId
+        ? (item.leidoPor || []).some(id => id.toString() === userId)
+        : item.leido;
+      return { ...item, id: item._id.toString(), leido };
+    });
   },
 
   async getNoticiasCount() {
@@ -126,9 +173,18 @@ module.exports = {
     return Noticia.countDocuments();
   },
 
-  async markLeido(id) {
+  async markLeido(id, userId = null) {
     ensureReady();
-    await Noticia.findByIdAndUpdate(id, { leido: true });
+    if (userId) {
+      const n = await Noticia.findById(id);
+      if (n && !n.leidoPor.some(id => id.toString() === userId)) {
+        n.leidoPor.push(userId);
+        if (!n.leido) n.leido = true;
+        await n.save();
+      }
+    } else {
+      await Noticia.findByIdAndUpdate(id, { leido: true });
+    }
   },
 
   async toggleFavorito(id) {
@@ -138,14 +194,33 @@ module.exports = {
     return false;
   },
 
-  async getUnreadCount() {
+  async getUnreadCount(userId = null) {
     ensureReady();
+    if (userId) {
+      return Noticia.countDocuments({ leidoPor: { $ne: userId } });
+    }
     return Noticia.countDocuments({ leido: false });
   },
 
-  async markMultipleLeido(ids, leido = true) {
+  async markMultipleLeido(ids, leido = true, userId = null) {
     ensureReady();
-    await Noticia.updateMany({ _id: { $in: ids } }, { leido });
+    if (userId) {
+      const items = await Noticia.find({ _id: { $in: ids } });
+      for (const n of items) {
+        if (leido) {
+          if (!n.leidoPor.some(id => id.toString() === userId)) {
+            n.leidoPor.push(userId);
+          }
+          n.leido = true;
+        } else {
+          n.leidoPor = n.leidoPor.filter(id => id.toString() !== userId);
+          n.leido = n.leidoPor.length > 0;
+        }
+        await n.save();
+      }
+    } else {
+      await Noticia.updateMany({ _id: { $in: ids } }, { leido });
+    }
   },
 
   async getUltimaObtencion() {
@@ -232,11 +307,12 @@ module.exports = {
   },
 
   // Stats
-  async getStats() {
+  async getStats(userId = null) {
     ensureReady();
+    const noLeidasQuery = userId ? { leidoPor: { $ne: userId } } : { leido: false };
     const [total, noLeidas, favoritas, traducidas, keywords, fuentes] = await Promise.all([
       Noticia.countDocuments(),
-      Noticia.countDocuments({ leido: false }),
+      Noticia.countDocuments(noLeidasQuery),
       Noticia.countDocuments({ favorito: true }),
       Noticia.countDocuments({ traducido: true }),
       Keyword.countDocuments({ activo: true }),
@@ -244,4 +320,10 @@ module.exports = {
     ]);
     return { total, noLeidas, favoritas, traducidas, keywords, fuentes };
   },
+
+  // Auth
+  findUserByUsername,
+  createUser,
+  updateUser,
+  getUsers,
 };
