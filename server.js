@@ -186,10 +186,24 @@ async function start() {
   await db.connect(MONGODB_URI);
   console.log('Conectado a MongoDB');
 
+  // Auto-fetch cada 6 horas
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  setInterval(async () => {
+    console.log('[Cron] Auto-fetch cada 6h...');
+    try {
+      const r = await fetcher.fetchAll();
+      if (r.nuevas > 0) broadcast({ type: 'new_noticias', count: r.nuevas });
+      console.log(`[Cron] ${r.nuevas} nuevas noticias`);
+    } catch (err) {
+      console.error('[Cron] Error:', err.message);
+    }
+  }, SIX_HOURS);
+
   server.listen(PORT, () => {
     console.log(`App de Noticias corriendo en http://localhost:${PORT}`);
     fetcher.fetchAll().then(r => {
       console.log(`Primera carga: ${r.nuevas} noticias nuevas`);
+      if (r.nuevas > 0) broadcast({ type: 'new_noticias', count: r.nuevas });
     }).catch(console.error);
   });
 }
