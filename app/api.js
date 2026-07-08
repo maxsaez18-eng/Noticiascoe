@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const BASE_URL = '';
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || '';
 
 let cachedToken = null;
 

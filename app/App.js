@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, Platform, Text } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -20,11 +21,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 const Tab = createBottomTabNavigator();
 
 const icons = {
-  Feed: '⊙',
-  Keywords: '#',
-  Sources: '◎',
-  Stats: '⚙',
-  Users: '👥',
+  Feed: 'newspaper-outline',
+  Keywords: 'pricetags-outline',
+  Sources: 'rss-outline',
+  Stats: 'settings-outline',
+  Users: 'people-outline',
 };
 
 function AppContent() {
@@ -66,7 +67,7 @@ function AppContent() {
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color, lineHeight: size + 4 }}>{icons[route.name] || '?'}</Text>
+            <Ionicons name={icons[route.name] || 'help-outline'} size={size} color={color} />
           ),
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.text3,

@@ -1,33 +1,50 @@
 {
   "expo": {
-    "name": "App Noticias",
-    "slug": "app-noticias",
+    "name": "Noticias COE",
+    "slug": "noticias-coe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "backgroundColor": "#1d9bf0"
+      "image": "./assets/splash.png",
+      "backgroundColor": "#1d9bf0",
+      "resizeMode": "contain"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appnoticias.app"
+      "bundleIdentifier": "com.noticiascoe.app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1d9bf0"
       },
-      "package": "com.appnoticias.app"
+      "package": "com.noticiascoe.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": { "scheme": "https", "host": "noticiascoe-production.up.railway.app" }
+        }
+      ]
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "apiUrl": "https://noticiascoe-production.up.railway.app"
+    },
+    "scheme": "noticiascoe"
   }
 }
