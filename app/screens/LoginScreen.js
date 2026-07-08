@@ -37,7 +37,7 @@ export default function LoginScreen() {
   return (
     <View style={s.container}>
       <View style={s.card}>
-        <Text style={s.title}>Noticias App</Text>
+        <Text style={s.title}>Noticias COE</Text>
         <Text style={s.subtitle}>Inicia sesión</Text>
 
         {error ? <Text style={s.error}>{error}</Text> : null}
