@@ -63,8 +63,13 @@ async function fetchFuente(fuente) {
   }
 }
 
-async function searchByKeyword(keyword) {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=es-419&gl=US&ceid=US:es-419`;
+async function searchByKeyword(keyword, source = 'google') {
+  const urls = {
+    google: `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=es-419&gl=US&ceid=US:es-419`,
+    bing: `https://www.bing.com/news/search?q=${encodeURIComponent(keyword)}&format=rss`,
+  };
+  const url = urls[source];
+  if (!url) return [];
   try {
     const feed = await rssParser.parseURL(url);
     const items = feed.items || [];
@@ -83,7 +88,7 @@ async function searchByKeyword(keyword) {
       }))
       .filter(a => a.titulo && a.url);
   } catch (err) {
-    console.error(`Error searching keyword "${keyword}": ${err.message}`);
+    console.error(`Error searching keyword "${keyword}" (${source}): ${err.message}`);
     return [];
   }
 }
@@ -99,16 +104,18 @@ async function fetchAll() {
     todas.push(...items);
   }
 
-  // 2. Search by each active keyword via Google News RSS
+  // 2. Search by each active keyword via Google News RSS + Bing News RSS
   const palabras = await db.getActiveKeywords();
   for (const palabra of palabras) {
-    console.log(`Searching keyword: ${palabra}...`);
-    const items = await searchByKeyword(palabra);
-    const filtered = items.filter(a => {
-      const text = `${a.titulo} ${a.descripcion || ''}`.toLowerCase();
-      return text.includes(palabra.toLowerCase());
-    });
-    todas.push(...filtered);
+    for (const source of ['google', 'bing']) {
+      console.log(`Searching keyword "${palabra}" (${source})...`);
+      const items = await searchByKeyword(palabra, source);
+      const filtered = items.filter(a => {
+        const text = `${a.titulo} ${a.descripcion || ''}`.toLowerCase();
+        return text.includes(palabra.toLowerCase());
+      });
+      todas.push(...filtered);
+    }
   }
 
   // 3. Translate (best-effort, skips on timeout/rate-limit)
