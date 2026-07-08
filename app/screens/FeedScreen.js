@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput,
-  StyleSheet, Linking, Platform,
+  StyleSheet, Linking, Platform, Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme';
@@ -151,8 +151,11 @@ export default function FeedScreen({ route, navigation }) {
 
   const s = makeStyles(colors);
 
+  const [imgErrors, setImgErrors] = useState({});
+
   const renderCard = ({ item }) => {
     const selected = selectedIds.has(item.id);
+    const hasImage = item.imagen && !imgErrors[item.id];
     return (
       <TouchableOpacity
         style={[
@@ -164,6 +167,14 @@ export default function FeedScreen({ route, navigation }) {
         onLongPress={() => onCardLongPress(item)}
         activeOpacity={0.8}
       >
+        {hasImage && (
+          <Image
+            source={{ uri: item.imagen }}
+            style={s.cardImage}
+            resizeMode="cover"
+            onError={() => setImgErrors(prev => ({ ...prev, [item.id]: true }))}
+          />
+        )}
         <View style={s.cardRow}>
           {selectionMode && (
             <View style={[s.checkbox, selected && s.checkboxSelected]}>
@@ -368,12 +379,15 @@ function makeStyles(colors) {
     list: { padding: 10, paddingBottom: 20 },
     empty: { textAlign: 'center', color: colors.text3, marginTop: 60, fontSize: 15 },
     card: {
-      backgroundColor: colors.surface, borderRadius: 10, padding: 14,
-      marginBottom: 8, borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.surface, borderRadius: 10,
+      marginBottom: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    },
+    cardImage: {
+      width: '100%', height: 180, backgroundColor: colors.surface2,
     },
     unread: { borderLeftWidth: 3, borderLeftColor: colors.accent },
     selected: { borderColor: colors.accent, backgroundColor: colors.surface2 },
-    cardRow: { flexDirection: 'row', alignItems: 'flex-start' },
+    cardRow: { flexDirection: 'row', alignItems: 'flex-start', padding: 14 },
     checkbox: {
       width: 22, height: 22, borderRadius: 11, borderWidth: 2,
       borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
