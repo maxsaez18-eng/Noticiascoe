@@ -2,6 +2,7 @@ const cache = new Map();
 
 const DELAY = 200;
 const MYMEMORY_TIMEOUT = 5000;
+let rateLimited = false;
 
 let queue = Promise.resolve();
 
@@ -35,6 +36,7 @@ async function translateMyMemory(text) {
 
 async function translateText(text, retry = 0) {
   if (!text || text.length < 2) return text;
+  if (rateLimited) return text;
   const trimmed = text.trim();
   const cacheKey = trimmed.toLowerCase().slice(0, 200);
   if (cache.has(cacheKey)) return cache.get(cacheKey);
@@ -47,11 +49,16 @@ async function translateText(text, retry = 0) {
     cache.set(cacheKey, translated);
     return translated;
   } catch (err) {
+    const msg = err.name === 'AbortError' ? 'timeout' : err.message;
+    if (msg.includes('429')) {
+      rateLimited = true;
+      console.log(`  [TL] Rate-limited (429), skipping remaining translations`);
+      return text;
+    }
     if (retry < 2) {
       await new Promise(r => setTimeout(r, 2000));
       return translateText(text, retry + 1);
     }
-    const msg = err.name === 'AbortError' ? 'timeout' : err.message;
     console.log(`  [TL] Skipped: ${msg}`);
     return text;
   }
@@ -74,4 +81,8 @@ async function translateArticle(article) {
   };
 }
 
-module.exports = { translateArticle };
+function resetRateLimit() {
+  rateLimited = false;
+}
+
+module.exports = { translateArticle, resetRateLimit };

@@ -1,6 +1,6 @@
 const RssParser = require('rss-parser');
 const db = require('./database');
-const { translateArticle } = require('./translator');
+const { translateArticle, resetRateLimit } = require('./translator');
 
 const rssParser = new RssParser({
   timeout: 15000,
@@ -94,6 +94,7 @@ async function searchByKeyword(keyword, source = 'google') {
 }
 
 async function fetchAll() {
+  resetRateLimit();
   const fuentes = await db.getActiveFuentes();
   const todas = [];
 
@@ -129,10 +130,10 @@ async function fetchAll() {
     }
   }
 
-  // 3. Translate articles in parallel (concurrency = 5)
+  // 3. Translate articles in parallel (concurrency = 2)
   console.log(`Translating ${todas.length} articles...`);
   const traducidas = [];
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 2;
   for (let i = 0; i < todas.length; i += CONCURRENCY) {
     const batch = todas.slice(i, i + CONCURRENCY);
     const translations = await Promise.allSettled(
