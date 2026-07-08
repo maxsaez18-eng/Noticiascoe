@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Noticias</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h1>App Noticias</h1>
+        <p class="subtitle">Tu feed personal</p>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" data-view="feed">
+          <span class="icon">≡</span> Feed
+        </button>
+        <button class="nav-btn" data-view="keywords">
+          <span class="icon">☰</span> Palabras Clave
+        </button>
+        <button class="nav-btn" data-view="sources">
+          <span class="icon">◎</span> Fuentes
+        </button>
+        <button class="nav-btn" data-view="stats">
+          <span class="icon">◉</span> Estadísticas
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="refreshBtn" class="refresh-btn">
+          ↻ Sincronizar Ahora
+        </button>
+        <div class="last-update" id="lastUpdate">Esperando...</div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <!-- FEED VIEW -->
+      <section id="view-feed" class="view active">
+        <div class="view-header">
+          <h2>Feed de Noticias</h2>
+          <div class="view-actions">
+            <span class="unread-badge" id="unreadBadge">0</span>
+            <button id="markAllReadBtn" class="btn-small">✓ Todo leído</button>
+          </div>
+        </div>
+        <div id="feed" class="feed">
+          <div class="loading">Cargando noticias...</div>
+        </div>
+      </section>
+
+      <!-- KEYWORDS VIEW -->
+      <section id="view-keywords" class="view">
+        <div class="view-header">
+          <h2>Palabras Clave</h2>
+          <p class="view-sub">Las noticias se filtran según estas palabras</p>
+        </div>
+        <div class="keywords-form">
+          <input type="text" id="keywordInput" placeholder="Ej: inteligencia artificial" />
+          <button id="addKeywordBtn">Agregar</button>
+        </div>
+        <div id="keywordsList" class="keywords-list"></div>
+      </section>
+
+      <!-- SOURCES VIEW -->
+      <section id="view-sources" class="view">
+        <div class="view-header">
+          <h2>Fuentes RSS</h2>
+          <p class="view-sub">De dónde se obtienen las noticias</p>
+        </div>
+        <div class="sources-form">
+          <input type="text" id="sourceName" placeholder="Nombre" />
+          <input type="url" id="sourceUrl" placeholder="URL del feed RSS" />
+          <button id="addSourceBtn">Agregar</button>
+        </div>
+        <div id="sourcesList" class="sources-list"></div>
+      </section>
+
+      <!-- STATS VIEW -->
+      <section id="view-stats" class="view">
+        <div class="view-header">
+          <h2>Estadísticas</h2>
+        </div>
+        <div id="statsContent" class="stats-content"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="notification" class="notification hidden">
+    <span id="notifMsg"></span>
+    <button id="notifClose">×</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

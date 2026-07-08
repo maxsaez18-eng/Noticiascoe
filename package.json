@@ -1,0 +1,23 @@
+{
+  "name": "app-noticias",
+  "version": "1.0.0",
+  "description": "Agregador de noticias personal con alertas en tiempo real",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "pm2:start": "pm2 start server.js --name app-noticias",
+    "pm2:stop": "pm2 stop app-noticias",
+    "pm2:restart": "pm2 restart app-noticias",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs app-noticias",
+    "pm2:save": "pm2 save"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3",
+    "rss-parser": "^3.13.0",
+    "ws": "^8.18.0",
+    "mongoose": "^8.9.0"
+  }
+}

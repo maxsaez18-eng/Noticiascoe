@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: app-noticias
+    env: node
+    buildCommand: cd app && npm install && npx expo export --platform web --output-dir dist
+    startCommand: node server.js
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: PORT
+        value: 10000
+      - key: NODE_VERSION
+        value: 22
+    healthCheckPath: /api/stats
+    cron:
+      - schedule: "0 */6 * * *"
+        command: "curl -X POST https://app-noticias.onrender.com/api/cron"

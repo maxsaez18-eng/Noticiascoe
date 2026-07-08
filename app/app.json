@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "App Noticias",
+    "slug": "app-noticias",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1d9bf0"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.appnoticias.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1d9bf0"
+      },
+      "package": "com.appnoticias.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
