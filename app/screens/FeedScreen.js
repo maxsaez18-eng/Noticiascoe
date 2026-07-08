@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput,
   StyleSheet, Linking, Platform,
@@ -41,14 +41,14 @@ export default function FeedScreen({ route, navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [searching, setSearching] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const searchTimer = useRef(null);
 
   const isAllSelected = selectionMode && filteredNoticias.length > 0 && filteredNoticias.every(n => selectedIds.has(n.id));
 
-  const load = useCallback(async (search = '') => {
+  const loadSearch = useCallback(async (text) => {
     try {
-      const data = await getNoticias(50, 0, search);
+      const data = await getNoticias(50, 0, text);
       setAllNoticias(data || []);
       setFilteredNoticias(data || []);
       setHasMore((data || []).length >= 50);
@@ -74,26 +74,22 @@ export default function FeedScreen({ route, navigation }) {
     setLoadingMore(false);
   }, [loadingMore, hasMore, allNoticias.length, searchText]);
 
-  const doSearch = useCallback((text) => {
+  const onSearchChange = useCallback((text) => {
     setSearchText(text);
-    setSearching(true);
-    setHasMore(true);
-  }, []);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => loadSearch(text), 300);
+  }, [loadSearch]);
 
-  useEffect(() => {
-    if (!searching) return;
-    const timer = setTimeout(async () => {
-      await load(searchText);
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchText, searching, load]);
+  const onSearchSubmit = useCallback(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    loadSearch(searchText);
+  }, [loadSearch, searchText]);
 
-  const clearSearch = useCallback(async () => {
+  const clearSearch = useCallback(() => {
     setSearchText('');
-    setSearching(false);
-    await load('');
-  }, [load]);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    loadSearch('');
+  }, [loadSearch]);
 
   const doRefresh = useCallback(async () => {
     setSyncing(true);
@@ -281,7 +277,9 @@ export default function FeedScreen({ route, navigation }) {
                   placeholder="Buscar en todas las noticias..."
                   placeholderTextColor={colors.text3}
                   value={searchText}
-                  onChangeText={doSearch}
+                  onChangeText={onSearchChange}
+                  onSubmitEditing={onSearchSubmit}
+                  returnKeyType="search"
                 />
                 {searchText ? (
                   <TouchableOpacity onPress={clearSearch} style={s.searchClear}>
