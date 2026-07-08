@@ -122,8 +122,6 @@ module.exports = {
   },
 
   async getNoticiasCount() {
-
-  async getNoticiasCount() {
     ensureReady();
     return Noticia.countDocuments();
   },
