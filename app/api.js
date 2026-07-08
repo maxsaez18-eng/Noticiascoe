@@ -1,8 +1,10 @@
 const BASE_URL = '';
 
-export async function getNoticias(limit = 50, offset = 0) {
+export async function getNoticias(limit = 50, offset = 0, search = '') {
   try {
-    const res = await fetch(`${BASE_URL}/api/noticias?limit=${limit}&offset=${offset}`, { cache: 'no-cache' });
+    let url = `${BASE_URL}/api/noticias?limit=${limit}&offset=${offset}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const res = await fetch(url, { cache: 'no-cache' });
     return await res.json();
   } catch { return []; }
 }

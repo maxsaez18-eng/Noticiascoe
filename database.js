@@ -104,11 +104,24 @@ module.exports = {
     return true;
   },
 
-  async getNoticias(limit = 50, offset = 0) {
+  async getNoticias(limit = 50, offset = 0, search = '') {
     ensureReady();
-    const items = await Noticia.find().sort({ fecha_publicacion: -1 }).skip(offset).limit(limit).lean();
+    let query = {};
+    if (search) {
+      const words = search.trim().split(/\s+/).filter(Boolean);
+      const conditions = words.map(w => ({
+        $or: [
+          { titulo: { $regex: w, $options: 'i' } },
+          { descripcion: { $regex: w, $options: 'i' } },
+        ],
+      }));
+      query = { $and: conditions };
+    }
+    const items = await Noticia.find(query).sort({ fecha_publicacion: -1 }).skip(offset).limit(limit).lean();
     return items.map(item => ({ ...item, id: item._id.toString() }));
   },
+
+  async getNoticiasCount() {
 
   async getNoticiasCount() {
     ensureReady();

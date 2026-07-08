@@ -60,7 +60,8 @@ app.get('/api/noticias', async (req, res) => {
   await tryAutoFetch();
   const limit = parseInt(req.query.limit) || 50;
   const offset = parseInt(req.query.offset) || 0;
-  res.json(await fetcher.getNoticias(limit, offset));
+  const search = req.query.search || '';
+  res.json(await fetcher.getNoticias(limit, offset, search));
 });
 
 app.patch('/api/noticias/bulk/leer', async (req, res) => {

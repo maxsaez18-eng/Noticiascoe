@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator,
+  View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput,
   StyleSheet, Linking, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -40,13 +40,15 @@ export default function FeedScreen({ route, navigation }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [searching, setSearching] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const isAllSelected = selectionMode && filteredNoticias.length > 0 && filteredNoticias.every(n => selectedIds.has(n.id));
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (search = '') => {
     try {
-      const data = await getNoticias(50);
+      const data = await getNoticias(50, 0, search);
       setAllNoticias(data || []);
       setFilteredNoticias(data || []);
       setHasMore((data || []).length >= 50);
@@ -59,7 +61,7 @@ export default function FeedScreen({ route, navigation }) {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const data = await getNoticias(50, allNoticias.length);
+      const data = await getNoticias(50, allNoticias.length, searchText);
       if (data && data.length > 0) {
         setAllNoticias(prev => [...prev, ...data]);
         if (data.length < 50) setHasMore(false);
@@ -70,14 +72,35 @@ export default function FeedScreen({ route, navigation }) {
       console.warn('loadMore error', e);
     }
     setLoadingMore(false);
-  }, [loadingMore, hasMore, allNoticias.length]);
+  }, [loadingMore, hasMore, allNoticias.length, searchText]);
+
+  const doSearch = useCallback((text) => {
+    setSearchText(text);
+    setSearching(true);
+    setHasMore(true);
+  }, []);
+
+  useEffect(() => {
+    if (!searching) return;
+    const timer = setTimeout(async () => {
+      await load(searchText);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText, searching, load]);
+
+  const clearSearch = useCallback(async () => {
+    setSearchText('');
+    setSearching(false);
+    await load('');
+  }, [load]);
 
   const doRefresh = useCallback(async () => {
     setSyncing(true);
     await fetchNews();
-    await load();
+    await load(searchText);
     setSyncing(false);
-  }, [load]);
+  }, [load, searchText]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -251,6 +274,22 @@ export default function FeedScreen({ route, navigation }) {
               </View>
             </View>
             {syncing && <Text style={s.syncingText}>Sincronizando...</Text>}
+            {!selectionMode && (
+              <View style={s.searchRow}>
+                <TextInput
+                  style={s.searchInput}
+                  placeholder="Buscar en todas las noticias..."
+                  placeholderTextColor={colors.text3}
+                  value={searchText}
+                  onChangeText={doSearch}
+                />
+                {searchText ? (
+                  <TouchableOpacity onPress={clearSearch} style={s.searchClear}>
+                    <Text style={s.searchClearText}>✕</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
           </>
         )}
       </View>
@@ -321,6 +360,14 @@ function makeStyles(colors) {
     refreshBtnDisabled: { opacity: 0.5 },
     refreshText: { fontSize: 18, color: '#fff' },
     syncingText: { fontSize: 12, color: colors.accent, marginTop: 4 },
+    searchRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6 },
+    searchInput: {
+      flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 8, fontSize: 14,
+      backgroundColor: colors.surface2, color: colors.text,
+    },
+    searchClear: { padding: 6 },
+    searchClearText: { fontSize: 16, color: colors.text3 },
     selectionToolbar: {
       flexDirection: 'row', alignItems: 'center',
       justifyContent: 'space-between', marginBottom: 8,
