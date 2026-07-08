@@ -81,6 +81,8 @@ export default function FeedScreen({ route, navigation }) {
     setSyncing(false);
   }, [searchText]);
 
+  const clearSearch = () => doSearch('');
+
   useEffect(() => { doSearch(''); }, []);
 
   useFocusEffect(useCallback(() => {
