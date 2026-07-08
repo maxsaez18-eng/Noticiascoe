@@ -94,11 +94,11 @@ export default function FeedScreen({ route, navigation }) {
   const doRefresh = useCallback(async () => {
     setSyncing(true);
     await fetchNews();
-    await load(searchText);
+    await loadSearch(searchText);
     setSyncing(false);
-  }, [load, searchText]);
+  }, [loadSearch, searchText]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadSearch(''); }, [loadSearch]);
 
   useFocusEffect(useCallback(() => {
     if (route.params?.refresh) {
