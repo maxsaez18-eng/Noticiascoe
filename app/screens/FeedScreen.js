@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, RefreshControl,
+  View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator,
   StyleSheet, Linking, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,6 +37,8 @@ export default function FeedScreen({ route, navigation }) {
   const [filteredNoticias, setFilteredNoticias] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -47,10 +49,28 @@ export default function FeedScreen({ route, navigation }) {
       const data = await getNoticias(50);
       setAllNoticias(data || []);
       setFilteredNoticias(data || []);
+      setHasMore((data || []).length >= 50);
     } catch (e) {
       console.warn('load error', e);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await getNoticias(50, allNoticias.length);
+      if (data && data.length > 0) {
+        setAllNoticias(prev => [...prev, ...data]);
+        if (data.length < 50) setHasMore(false);
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.warn('loadMore error', e);
+    }
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, allNoticias.length]);
 
   const doRefresh = useCallback(async () => {
     setSyncing(true);
@@ -241,6 +261,8 @@ export default function FeedScreen({ route, navigation }) {
         data={filteredNoticias}
         renderItem={renderCard}
         keyExtractor={item => item.id?.toString() || item.url}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -256,6 +278,20 @@ export default function FeedScreen({ route, navigation }) {
               : 'Sin resultados con esos filtros'}
           </Text>
         }
+        ListFooterComponent={loadingMore ? (
+          <View style={s.footer}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={s.footerText}>Cargando más...</Text>
+          </View>
+        ) : hasMore ? (
+          <View style={s.footer}>
+            <Text style={s.footerHint}>Desliza para cargar más</Text>
+          </View>
+        ) : (
+          <View style={s.footer}>
+            <Text style={s.footerEnd}>Todas las noticias cargadas</Text>
+          </View>
+        )}
       />
     </View>
   );
@@ -345,5 +381,9 @@ function makeStyles(colors) {
     actionBtn: { padding: 4 },
     actionIcon: { fontSize: 16, color: colors.text3 },
     favActive: { color: colors.danger },
+    footer: { alignItems: 'center', paddingVertical: 16 },
+    footerText: { fontSize: 13, color: colors.accent, marginTop: 6 },
+    footerHint: { fontSize: 12, color: colors.text3 },
+    footerEnd: { fontSize: 12, color: colors.text3 },
   });
 }
