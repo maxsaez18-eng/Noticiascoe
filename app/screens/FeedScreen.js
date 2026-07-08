@@ -42,20 +42,20 @@ export default function FeedScreen({ route, navigation }) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const searchTimer = useRef(null);
 
   const isAllSelected = selectionMode && filteredNoticias.length > 0 && filteredNoticias.every(n => selectedIds.has(n.id));
 
-  const loadSearch = useCallback(async (text) => {
+  const doSearch = async (text) => {
+    setSearchText(text);
     try {
       const data = await getNoticias(50, 0, text);
       setAllNoticias(data || []);
       setFilteredNoticias(data || []);
       setHasMore((data || []).length >= 50);
     } catch (e) {
-      console.warn('load error', e);
+      console.warn('search error', e);
     }
-  }, []);
+  };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -74,31 +74,14 @@ export default function FeedScreen({ route, navigation }) {
     setLoadingMore(false);
   }, [loadingMore, hasMore, allNoticias.length, searchText]);
 
-  const onSearchChange = useCallback((text) => {
-    setSearchText(text);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => loadSearch(text), 300);
-  }, [loadSearch]);
-
-  const onSearchSubmit = useCallback(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    loadSearch(searchText);
-  }, [loadSearch, searchText]);
-
-  const clearSearch = useCallback(() => {
-    setSearchText('');
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    loadSearch('');
-  }, [loadSearch]);
-
   const doRefresh = useCallback(async () => {
     setSyncing(true);
     await fetchNews();
-    await loadSearch(searchText);
+    await doSearch(searchText);
     setSyncing(false);
-  }, [loadSearch, searchText]);
+  }, [searchText]);
 
-  useEffect(() => { loadSearch(''); }, [loadSearch]);
+  useEffect(() => { doSearch(''); }, []);
 
   useFocusEffect(useCallback(() => {
     if (route.params?.refresh) {
@@ -144,10 +127,8 @@ export default function FeedScreen({ route, navigation }) {
       toggleSelection(item.id);
       return;
     }
-    if (!item.leido) {
-      await markLeido(item.id);
-      setAllNoticias(prev => prev.map(n => n.id === item.id ? { ...n, leido: true } : n));
-    }
+    await markLeido(item.id);
+    setAllNoticias(prev => prev.map(n => n.id === item.id ? { ...n, leido: true } : n));
     Linking.openURL(item.url);
   };
 
@@ -277,8 +258,8 @@ export default function FeedScreen({ route, navigation }) {
                   placeholder="Buscar en todas las noticias..."
                   placeholderTextColor={colors.text3}
                   value={searchText}
-                  onChangeText={onSearchChange}
-                  onSubmitEditing={onSearchSubmit}
+                  onChangeText={doSearch}
+                  onSubmitEditing={() => doSearch(searchText)}
                   returnKeyType="search"
                 />
                 {searchText ? (
