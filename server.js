@@ -99,6 +99,18 @@ app.get('/api/auth/me', verifyToken, (req, res) => {
   res.json({ user: req.user });
 });
 
+app.patch('/api/auth/me/password', verifyToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Ambas contraseñas requeridas' });
+  if (newPassword.length < 4) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres' });
+  try {
+    await db.updatePassword(req.user.id, currentPassword, newPassword);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // --- API endpoints ---
 
 app.get('/api/noticias', optionalToken, async (req, res) => {

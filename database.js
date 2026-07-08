@@ -118,6 +118,17 @@ async function updateUser(id, updates) {
   return User.findByIdAndUpdate(id, updates, { new: true });
 }
 
+async function updatePassword(userId, currentPassword, newPassword) {
+  ensureReady();
+  const user = await User.findById(userId);
+  if (!user) throw new Error('Usuario no encontrado');
+  const ok = await bcrypt.compare(currentPassword, user.password);
+  if (!ok) throw new Error('Contraseña actual incorrecta');
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+  return true;
+}
+
 async function getUsers() {
   ensureReady();
   return User.find().select('-password').sort({ username: 1 }).lean();
@@ -325,5 +336,6 @@ module.exports = {
   findUserByUsername,
   createUser,
   updateUser,
+  updatePassword,
   getUsers,
 };

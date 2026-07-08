@@ -60,6 +60,13 @@ export async function updateUser(id, updates) {
   });
 }
 
+export async function changePassword(currentPassword, newPassword) {
+  return apiFetch(`${BASE_URL}/api/auth/me/password`, {
+    method: 'PATCH',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 // --- Noticias ---
 
 export async function getNoticias(limit = 50, offset = 0, search = '') {

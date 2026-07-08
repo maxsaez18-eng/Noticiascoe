@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView,
+  View, Text, TextInput, TouchableOpacity, Modal,
+  StyleSheet, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import { getStats } from '../api';
+import { getStats, changePassword } from '../api';
 
 const statConfig = [
   { key: 'total', label: 'Total Noticias' },
@@ -25,6 +26,12 @@ export default function StatsScreen({ navigation }) {
   const { colors, isDark, mode, setThemeMode } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwdError, setPwdError] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => setStats(await getStats());
@@ -32,6 +39,24 @@ export default function StatsScreen({ navigation }) {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleChangePassword = async () => {
+    setPwdError('');
+    if (!currentPassword || !newPassword) { setPwdError('Completa todos los campos'); return; }
+    if (newPassword.length < 4) { setPwdError('La nueva contraseña debe tener al menos 4 caracteres'); return; }
+    if (newPassword !== confirmPassword) { setPwdError('Las contraseñas no coinciden'); return; }
+    setPwdLoading(true);
+    const res = await changePassword(currentPassword, newPassword);
+    setPwdLoading(false);
+    if (res.error) {
+      setPwdError(res.error);
+    } else {
+      setShowPwdModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  };
 
   const s = makeStyles(colors);
 
@@ -47,6 +72,9 @@ export default function StatsScreen({ navigation }) {
           <Text style={s.username}>{user?.username}</Text>
           <Text style={s.roleBadge}>{user?.role}</Text>
         </View>
+        <TouchableOpacity style={s.pwdBtn} onPress={() => setShowPwdModal(true)}>
+          <Text style={s.pwdBtnText}>Cambiar contraseña</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={s.logoutBtn} onPress={logout}>
           <Text style={s.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
@@ -98,6 +126,61 @@ export default function StatsScreen({ navigation }) {
           ))}
         </View>
       </View>
+
+      <Modal visible={showPwdModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Cambiar contraseña</Text>
+
+            {pwdError ? <Text style={s.error}>{pwdError}</Text> : null}
+
+            <TextInput
+              style={s.input}
+              placeholder="Contraseña actual"
+              placeholderTextColor={colors.text3}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+              editable={!pwdLoading}
+            />
+            <TextInput
+              style={s.input}
+              placeholder="Nueva contraseña"
+              placeholderTextColor={colors.text3}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              editable={!pwdLoading}
+            />
+            <TextInput
+              style={s.input}
+              placeholder="Confirmar nueva contraseña"
+              placeholderTextColor={colors.text3}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              editable={!pwdLoading}
+              onSubmitEditing={handleChangePassword}
+            />
+
+            <View style={s.modalActions}>
+              <TouchableOpacity
+                style={s.cancelBtn}
+                onPress={() => { setShowPwdModal(false); setPwdError(''); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}
+              >
+                <Text style={s.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.saveBtn, pwdLoading && { opacity: 0.5 }]}
+                onPress={handleChangePassword}
+                disabled={pwdLoading}
+              >
+                {pwdLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.saveBtnText}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -116,6 +199,11 @@ function makeStyles(colors) {
       borderRadius: 4, backgroundColor: colors.accent + '20', color: colors.accent,
       overflow: 'hidden',
     },
+    pwdBtn: {
+      backgroundColor: colors.surface2, borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+      paddingVertical: 10, alignItems: 'center', marginBottom: 8,
+    },
+    pwdBtnText: { color: colors.accent, fontWeight: '600', fontSize: 14 },
     logoutBtn: {
       backgroundColor: colors.danger, borderRadius: 8, paddingVertical: 10,
       alignItems: 'center',
@@ -139,5 +227,24 @@ function makeStyles(colors) {
     },
     value: { fontSize: 28, fontWeight: '700', color: colors.accent },
     label: { fontSize: 12, color: colors.text2, marginTop: 4, textAlign: 'center' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+    modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: colors.border },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16 },
+    error: {
+      backgroundColor: colors.danger + '18', color: colors.danger,
+      padding: 10, borderRadius: 8, marginBottom: 12,
+      textAlign: 'center', fontSize: 13, fontWeight: '500',
+      overflow: 'hidden',
+    },
+    input: {
+      borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+      paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
+      backgroundColor: colors.surface2, color: colors.text, marginBottom: 12,
+    },
+    modalActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginTop: 4 },
+    cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
+    cancelText: { fontSize: 14, color: colors.text2 },
+    saveBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10, minWidth: 80, alignItems: 'center' },
+    saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   });
 }
