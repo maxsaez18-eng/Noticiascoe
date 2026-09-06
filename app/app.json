@@ -23,21 +23,12 @@
         }
       }
     },
-    "android": {
+"android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1d9bf0"
       },
-      "package": "com.noticiascoe.app",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "data": {
-"scheme": "https",
-          "host": "noticias-coe.onrender.com"
-          }
-        }
-      ]
+      "package": "com.noticiascoe.app"
     },
     "web": {
       "bundler": "metro",
@@ -48,7 +39,7 @@
       "expo-font"
     ],
     "extra": {
-      "apiUrl": "https://noticias-coe.onrender.com",
+      "apiUrl": "",
       "eas": {
         "projectId": "a1a246bb-3fa4-42bf-80ec-7bee9d07b98b"
       }

@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-const BASE_URL = Constants.expoConfig?.extra?.apiUrl || '';
+const configuredUrl = Constants.expoConfig?.extra?.apiUrl || '';
+const useOrigin = Platform.OS === 'web' && typeof window !== 'undefined' && window.location && window.location.origin && !configuredUrl;
+const BASE_URL = useOrigin ? window.location.origin : configuredUrl;
 
 let cachedToken = null;
 
