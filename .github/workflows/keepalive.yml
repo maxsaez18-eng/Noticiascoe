@@ -1,15 +1,17 @@
 name: Keepalive
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping app para evitar sleep
+      - name: Ping app
         run: |
-          curl -fsS -m 60 "https://balocuun-noticiascoe.hf.space/api/stats" || true
-          curl -fsS -m 60 -X POST "https://balocuun-noticiascoe.hf.space/api/cron" || true
+          # TODO: fijar URL real de Suga cuando exista el proyecto:
+          # https://<service-id>-production-<region>.suga.run
+          # Suga es always-on y no duerme; este workflow queda como monitor opcional.
+          # Para activar el cron, descomentar la seccion "schedule" y los ping con la URL real.
+          curl -fsS -m 60 "https://REEMPLAZAR.suga.run/api/stats" || true
+          curl -fsS -m 60 -X POST "https://REEMPLAZAR.suga.run/api/cron" || true

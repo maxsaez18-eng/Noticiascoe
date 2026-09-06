@@ -1,9 +1,9 @@
 # Deploy - App Noticias
 
 Backend: Express (Node.js) + MongoDB Atlas + build web de Expo.
-Hoster actual: **Hugging Face Spaces** (Docker, gratis, sin tarjeta de crédito).
+Hoster actual: **Suga** (contenedores Node siempre encendidos, gratis, **sin tarjeta**).
 
-> Nota: Railway (trial agotado), Render y Koyeb (exigen tarjeta en 2026) no sirven gratis.
+> Nota: Railway (trial agotado), Render, Koyeb y Hugging Face Spaces (Docker) exigen tarjeta o PRO en 2026.
 
 ## 1. MongoDB Atlas (base de datos gratis)
 
@@ -17,38 +17,37 @@ Hoster actual: **Hugging Face Spaces** (Docker, gratis, sin tarjeta de crédito)
 > Si vienes de Railway, recupera el string con:
 > `railway variables --json` (antes de que el proyecto expire).
 
-## 2. Hugging Face Spaces (backend + web, gratis)
+## 2. Suga (backend + web, gratis y siempre encendido)
 
-El repo ya trae `Dockerfile` + build web commiteado en `app/dist` (no hace falta
-compilar en el host).
+El repo ya trae `Dockerfile` (escucha en el puerto `8080`) y el build web commiteado en `app/dist`, así que Suga solo tiene que construir el contenedor.
 
-1. Cuenta en https://huggingface.co (solo email, **sin tarjeta**).
-2. Nuevo Space:
-   - **Space name**: `noticiascoe`
-   - **License**: MIT
-   - **SDK**: `Docker`
-   - **Hardware**: `CPU basic` (free)
-3. En el Space, Settings → **Synchronize with GitHub**:
-   - Repo: `maxsaez18-eng/Noticiascoe`, rama `master`, subdirectorio: (vacío/raíz).
-   - Cada push a GitHub redeploya automáticamente.
-4. Settings → **Variables and secrets**:
-   - `MONGODB_URI` (secreta) = connection string de Atlas
-   - `JWT_SECRET` = cadena larga secreta
-   - `ADMIN_PASSWORD` = (opcional; si no, queda `admin123`)
-5. Esperar el build. La app queda en:
-   `https://balocuun-noticiascoe.hf.space`
+1. Cuenta en https://dashboard.suga.app/signup (solo email, **sin tarjeta**).
+   Al crear la organización, elige la región más cercana a tus usuarios.
+2. **New project** → **Connect GitHub** → instala la Suga GitHub App y dale acceso a `maxsaez18-eng/Noticiascoe`.
+3. Al importar, configura:
+   - **Branch**: `master`
+   - **Build method**: `Dockerfile` (ya está en la raíz)
+   - **Root directory**: (vacío)
+4. Crea el proyecto. En el canvas, click en el servicio → pestaña **Config**:
+   - **Public Networking** → **Generated URL** → **Add** → target port **8080**.
+   - **Environment variables** (marcar las secretas como *Sensitive*):
+     - `MONGODB_URI` = connection string de Atlas
+     - `JWT_SECRET` = cadena larga secreta
+     - `ADMIN_PASSWORD` = (opcional; si no, queda `admin123`)
+   - **Resources**: CPU `0.1` / Memory `256 MiB` (máximo del tier free; la app cabe).
+5. **Apply** para desplegar. El build tarda unos minutos.
+6. La app queda en una URL del tipo:
+   `https://<service-id>-production-<region>.suga.run`
 
-Prueba rápida: `https://balocuun-noticiascoe.hf.space/api/stats`
+Prueba rápida: `https://<service-id>-production-<region>.suga.run/api/stats`
 
-## 3. Mantener despierto (GitHub Actions)
+## 3. Uptime / keepalive
 
-Los Spaces free se duermen tras ~48h sin tráfico. El repo trae
-`.github/workflows/keepalive.yml` que ya hace ping cada 30 min a
-`https://balocuun-noticiascoe.hf.space` (`/api/stats` y `/api/cron`); corre solo
-según el cron, sin configuración adicional en GitHub.
-
-> Con el servicio despierto, el fetch interno del backend (`setInterval` cada 6h)
-> corre solo. El ping a `/api/cron` además lanza una pasada completa de fetch.
+Suga mantiene el servicio **siempre encendido** (no duerme, sin cold starts), así que
+no necesitas pings. El fetch interno del backend (`setInterval` cada 6h) corre solo.
+Opcionalmente, `.github/workflows/keepalive.yml` puede pasar de monitor con un cron
+cada 30 min sobre `/api/stats` y `/api/cron` (completar la URL real y descomentar)
+para recibir aviso por email si el servicio cae.
 
 ## 4. Configurar la URL de la API en la app
 
@@ -56,9 +55,9 @@ La app lee `app/app.json` → `extra.apiUrl` (usado por `app/api.js`).
 
 - **Web**: si `apiUrl` está vacío, la web usa automáticamente el mismo origen
   (funciona igual en cualquier host). Es la opción recomendada.
-- **Android (EAS)**: hay que fijar `extra.apiUrl` a la URL de HF (ej.
-  `https://<tu-usuario>-noticiascoe.hf.space`) antes de `eas build`, porque ahí
-  no hay "mismo origen".
+- **Android (EAS)**: hay que fijar `extra.apiUrl` a la URL real de Suga (ej.
+  `https://xxxx-production-abc.us-central1.suga.run`) antes de `eas build`,
+  porque ahí no hay "mismo origen".
 - También rellenar el `intentFilters` de Android (scheme/host) si se quiere deep
   link hacia la URL del backend.
 
