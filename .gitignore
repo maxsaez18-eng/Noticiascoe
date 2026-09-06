@@ -1,4 +1,4 @@
-node_modules/
+/node_modules/
 data/database.json
 .env
 app/node_modules/

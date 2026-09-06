@@ -36,19 +36,16 @@ compilar en el host).
    - `JWT_SECRET` = cadena larga secreta
    - `ADMIN_PASSWORD` = (opcional; si no, queda `admin123`)
 5. Esperar el build. La app queda en:
-   `https://<tu-usuario>-noticiascoe.hf.space`
+   `https://balocuun-noticiascoe.hf.space`
 
-Prueba rápida: `https://<tu-usuario>-noticiascoe.hf.space/api/stats`
+Prueba rápida: `https://balocuun-noticiascoe.hf.space/api/stats`
 
 ## 3. Mantener despierto (GitHub Actions)
 
 Los Spaces free se duermen tras ~48h sin tráfico. El repo trae
-`.github/workflows/keepalive.yml` que hace ping cada 30 min a `/api/stats` y
-`/api/cron`. Para activarlo:
-
-1. GitHub → repo `maxsaez18-eng/Noticiascoe` → **Settings → Secrets and variables → Actions → Variables**
-2. Nueva variable: **Name** `HF_SPACE_URL`, **Value** `https://<tu-usuario>-noticiascoe.hf.space`
-3. El workflow ya está en el repo; corre solo según el cron.
+`.github/workflows/keepalive.yml` que ya hace ping cada 30 min a
+`https://balocuun-noticiascoe.hf.space` (`/api/stats` y `/api/cron`); corre solo
+según el cron, sin configuración adicional en GitHub.
 
 > Con el servicio despierto, el fetch interno del backend (`setInterval` cada 6h)
 > corre solo. El ping a `/api/cron` además lanza una pasada completa de fetch.

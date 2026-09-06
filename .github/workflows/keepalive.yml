@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Ping app para evitar sleep
         run: |
-          curl -fsS -m 60 "https://${{ vars.HF_SPACE_URL }}/api/stats" || true
-          curl -fsS -m 60 -X POST "https://${{ vars.HF_SPACE_URL }}/api/cron" || true
+          curl -fsS -m 60 "https://balocuun-noticiascoe.hf.space/api/stats" || true
+          curl -fsS -m 60 -X POST "https://balocuun-noticiascoe.hf.space/api/cron" || true
