@@ -1,9 +1,9 @@
 # Deploy - App Noticias
 
 Backend: Express (Node.js) + MongoDB Atlas + build web de Expo.
-Hoster actual: **Koyeb** (free, sin tarjeta de crédito).
+Hoster actual: **Hugging Face Spaces** (Docker, gratis, sin tarjeta de crédito).
 
-> Nota: Railway (trial agotado) y Render (exige tarjeta en 2026) no sirven gratis.
+> Nota: Railway (trial agotado), Render y Koyeb (exigen tarjeta en 2026) no sirven gratis.
 
 ## 1. MongoDB Atlas (base de datos gratis)
 
@@ -17,35 +17,41 @@ Hoster actual: **Koyeb** (free, sin tarjeta de crédito).
 > Si vienes de Railway, recupera el string con:
 > `railway variables --json` (antes de que el proyecto expire).
 
-## 2. Koyeb (backend + web, gratis)
+## 2. Hugging Face Spaces (backend + web, gratis)
 
-1. Cuenta en https://koyeb.com (sin tarjeta en el plan free)
-2. Dashboard → **Create App** → conecta GitHub y selecciona `maxsaez18-eng/Noticiascoe`
-3. Configurar:
-   - **Build Command**:
-     `npm install && cd app && npm install && npx expo export --platform web --output-dir dist`
-   - **Run Command**: `node server.js` (también valida el `Procfile` del repo)
-   - **Instance**: free (`nano`, 512 MB)
-   - **Región**: cualquiera (US/EU)
-4. Variables de entorno:
-   - `MONGODB_URI` = connection string de Atlas
+El repo ya trae `Dockerfile` + build web commiteado en `app/dist` (no hace falta
+compilar en el host).
+
+1. Cuenta en https://huggingface.co (solo email, **sin tarjeta**).
+2. Nuevo Space:
+   - **Space name**: `noticiascoe`
+   - **License**: MIT
+   - **SDK**: `Docker`
+   - **Hardware**: `CPU basic` (free)
+3. En el Space, Settings → **Synchronize with GitHub**:
+   - Repo: `maxsaez18-eng/Noticiascoe`, rama `master`, subdirectorio: (vacío/raíz).
+   - Cada push a GitHub redeploya automáticamente.
+4. Settings → **Variables and secrets**:
+   - `MONGODB_URI` (secreta) = connection string de Atlas
    - `JWT_SECRET` = cadena larga secreta
    - `ADMIN_PASSWORD` = (opcional; si no, queda `admin123`)
-5. Deploy. La app queda en una URL `https://<app>.koyeb.app`
+5. Esperar el build. La app queda en:
+   `https://<tu-usuario>-noticiascoe.hf.space`
 
-## 3. Mantener despierto (cron-job.org, gratis)
+Prueba rápida: `https://<tu-usuario>-noticiascoe.hf.space/api/stats`
 
-Koyeb free escala a cero tras ~1h sin tráfico (cold start 1-5 s). Se mantiene
-vivo con un ping:
+## 3. Mantener despierto (GitHub Actions)
 
-1. Cuenta en https://cron-job.org
-2. New Cron Job:
-   - **URL**: `https://<tu-app>.koyeb.app/api/stats`
-   - **Schedule**: cada `30` minutos
-3. Guardar y activar
+Los Spaces free se duermen tras ~48h sin tráfico. El repo trae
+`.github/workflows/keepalive.yml` que hace ping cada 30 min a `/api/stats` y
+`/api/cron`. Para activarlo:
 
-Con el servicio despierto, el fetch interno del backend (`setInterval` cada 6h)
-corre solo.
+1. GitHub → repo `maxsaez18-eng/Noticiascoe` → **Settings → Secrets and variables → Actions → Variables**
+2. Nueva variable: **Name** `HF_SPACE_URL`, **Value** `https://<tu-usuario>-noticiascoe.hf.space`
+3. El workflow ya está en el repo; corre solo según el cron.
+
+> Con el servicio despierto, el fetch interno del backend (`setInterval` cada 6h)
+> corre solo. El ping a `/api/cron` además lanza una pasada completa de fetch.
 
 ## 4. Configurar la URL de la API en la app
 
@@ -53,9 +59,9 @@ La app lee `app/app.json` → `extra.apiUrl` (usado por `app/api.js`).
 
 - **Web**: si `apiUrl` está vacío, la web usa automáticamente el mismo origen
   (funciona igual en cualquier host). Es la opción recomendada.
-- **Android (EAS)**: hay que fijar `extra.apiUrl` a la URL de Koyeb (ej.
-  `https://<app>.koyeb.app`) antes de `eas build`, porque ahí no hay "mismo
-  origen".
+- **Android (EAS)**: hay que fijar `extra.apiUrl` a la URL de HF (ej.
+  `https://<tu-usuario>-noticiascoe.hf.space`) antes de `eas build`, porque ahí
+  no hay "mismo origen".
 - También rellenar el `intentFilters` de Android (scheme/host) si se quiere deep
   link hacia la URL del backend.
 

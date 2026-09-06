@@ -1,0 +1,14 @@
+.git
+.gitignore
+node_modules
+app/node_modules
+app/.expo
+app/dist-test
+app/App.js.backup
+app/App.js.full
+app/App.minimal-test.js
+app/App.test-*.js
+app/TestApp.js
+*.log
+.env
+data
