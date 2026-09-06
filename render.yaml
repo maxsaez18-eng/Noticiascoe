@@ -3,7 +3,7 @@ services:
     name: app-noticias
     env: node
     buildCommand: cd app && npm install && npx expo export --platform web --output-dir dist
-    startCommand: node server.js
+    startCommand: npm install && node server.js
     envVars:
       - key: MONGODB_URI
         sync: false

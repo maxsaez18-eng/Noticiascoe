@@ -1,82 +1,75 @@
 # Deploy - App Noticias
 
+Backend: Express (Node.js) + MongoDB Atlas + build web de Expo.
+No se usa Railway (trial agotado en 2026). Hoster: **Render** (free, sin tarjeta).
+
 ## 1. MongoDB Atlas (base de datos gratis)
 
-1. Crear cuenta en https://www.mongodb.com/atlas
-2. Crear cluster **M0 Free** (elige AWS, cualquier región)
-3. En Database Access → crear usuario (guardar user + password)
-4. En Network Access → Add IP → `0.0.0.0/0` (Allow from anywhere)
-5. En Databases → Connect → Drivers → copiar connection string
-   - Se ve así: `mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/app-noticias?retryWrites=true&w=majority`
+1. Cuenta en https://www.mongodb.com/atlas
+2. Cluster **M0 Free**
+3. Database Access → usuario + password
+4. Network Access → `0.0.0.0/0`
+5. Databases → Connect → Drivers → connection string:
+   `mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/app-noticias?retryWrites=true&w=majority`
 
-## 2. Render (backend gratis)
+> Si vienes de Railway y tienes el connection string en las variables del proyecto
+> de Railway, puedes recuperarlo con:
+> `railway variables --json` (antes de que el proyecto expire).
 
-1. Crear cuenta en https://render.com (con GitHub)
-2. Dashboard → New → Web Service
-3. Conectar tu repositorio de GitHub
-4. Configurar:
-   - **Name**: `app-noticias`
-   - **Root Directory**: (vacío, usar raíz)
+## 2. Render (backend + web, gratis)
+
+1. Cuenta en https://render.com (con GitHub)
+2. Dashboard → New → Web Service → conectar el repo `maxsaez18-eng/Noticiascoe`
+3. Configurar (ya está en `render.yaml`, pero verificar en el dashboard):
+   - **Name**: `noticias-coe` (la URL final será `https://<name>.onrender.com`)
    - **Build Command**: `cd app && npm install && npx expo export --platform web --output-dir dist`
    - **Start Command**: `npm install && node server.js`
    - **Plan**: Free
-5. Agregar variable de entorno:
-   - `MONGODB_URI` = tu connection string de MongoDB Atlas
-6. Deploy → esperar a que termine (primera vez tarda ~5 min)
+4. Agregar variables de entorno:
+   - `MONGODB_URI` = connection string de Atlas
+   - `JWT_SECRET` = cadena larga secreta
+   - `ADMIN_PASSWORD` = (opcional; si no se define queda `admin123`)
+5. Deploy → esperar build (~5 min la primera vez)
 
-Render te da una URL como `https://app-noticias.onrender.com`
+Render da una URL del tipo `https://noticias-coe.onrender.com`.
 
-## 3. cron-job.org (fetch cada 6h gratis)
+> Ojo: al migrar desde Railway, el build apunta a `app/app.json` → `extra.apiUrl`.
+> Actualizar esa URL antes de cada build del frontend.
 
-1. Crear cuenta en https://cron-job.org
+## 3. Mantener despierto (cron-job.org, gratis)
+
+Render free duerme el servicio tras ~15 min sin tráfico (~1 min de cold start).
+Se evita con un ping:
+
+1. Cuenta en https://cron-job.org
 2. New Cron Job:
-   - **URL**: `https://app-noticias.onrender.com/api/cron`
-   - **Schedule**: `Every 6 hours`
-   - Guardar
+   - **URL**: `https://<tu-app>.onrender.com/api/stats`
+   - **Schedule**: cada `10` minutos
+3. Guardar y activar
 
-## 4. Expo Go (app en el celular)
+Con el servicio despierto, el fetch interno del backend (`setInterval` cada 6h)
+corre solo. El endpoint `POST /api/cron` sigue disponible si algún día se
+quiere forzar la carga externamente.
 
-```bash
-cd app
-npx expo publish
+## 4. Configurar la URL de la API en la app
+
+La app lee la URL desde `app/app.json` → `extra.apiUrl` (usado por `app/api.js`).
+Antes de publicar un build (web o APK), dejar:
+
+```json
+"extra": { "apiUrl": "https://noticias-coe.onrender.com", ... }
 ```
 
-Esto publica la app en Expo. Después:
-- Abrir Expo Go en el celular
-- Iniciar sesión con la misma cuenta de Expo
-- La app aparece en la lista "Published projects"
-
-O compartir el link que muestra `expo publish`.
-
-## 5. Configurar la API URL en el celular
-
-Antes de publicar, editar `app/api.js` y cambiar:
-
-```js
-const BASE_URL = 'http://localhost:3000';
-```
-
-por:
-
-```js
-const BASE_URL = 'https://app-noticias.onrender.com';
-```
-
-Luego correr `npx expo publish` de nuevo.
+- **Web**: lo re-construye Render en cada deploy (`expo export`)
+- **Android (EAS)**: la URL queda embebida al hacer `eas build`
 
 ## Comandos útiles
 
 ```bash
-# Local (necesita MongoDB corriendo)
-cd app-noticias
+# Local (necesita MongoDB corriendo o MONGODB_URI)
 npm install
 node server.js
 
 # Web build local
-cd app
-npx expo export --platform web --output-dir dist
-
-# Publicar en Expo
-cd app
-npx expo publish
+cd app && npx expo export --platform web --output-dir dist
 ```

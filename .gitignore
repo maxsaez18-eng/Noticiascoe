@@ -10,6 +10,3 @@ app/App.test-*.js
 app/TestApp.js
 app/App.js.backup
 app/App.js.full
-app/notifications.js
-app/components/
-app/theme.js
