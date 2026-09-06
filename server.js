@@ -213,24 +213,34 @@ app.post('/api/fuentes/:id/toggle', verifyToken, requireRole('admin', 'editor'),
   res.json({ ok: true });
 });
 
-app.post('/api/fetch', async (req, res) => {
+let busyFetch = false;
+async function runFetchBackground() {
+  if (busyFetch) {
+    console.log('[Fetch] Ya hay un fetch en curso, se omite esta llamada');
+    return { ok: true, message: 'fetch ya en curso' };
+  }
+  busyFetch = true;
   try {
     const result = await fetcher.fetchAll();
-    broadcast({ type: 'new_noticias', count: result.nuevas });
-    res.json(result);
+    if (result.nuevas > 0) broadcast({ type: 'new_noticias', count: result.nuevas });
+    console.log(`[Fetch] ${result.nuevas} noticias nuevas de ${result.total}`);
+    return result;
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[Fetch] Error:', err.message);
+    return { ok: false, error: err.message };
+  } finally {
+    busyFetch = false;
   }
+}
+
+app.post('/api/fetch', async (req, res) => {
+  runFetchBackground();
+  res.status(202).json({ ok: true, message: 'fetch iniciado en segundo plano' });
 });
 
 app.post('/api/cron', async (req, res) => {
-  try {
-    console.log('[Cron-job] Fetching news...');
-    const result = await fetcher.fetchAll();
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  runFetchBackground();
+  res.status(202).json({ ok: true, message: 'fetch iniciado en segundo plano' });
 });
 
 // SPA fallback
@@ -245,23 +255,14 @@ async function start() {
   console.log('Conectado a MongoDB');
 
   const SIX_HOURS = 6 * 60 * 60 * 1000;
-  setInterval(async () => {
+  setInterval(() => {
     console.log('[Cron] Auto-fetch cada 6h...');
-    try {
-      const r = await fetcher.fetchAll();
-      if (r.nuevas > 0) broadcast({ type: 'new_noticias', count: r.nuevas });
-      console.log(`[Cron] ${r.nuevas} nuevas noticias`);
-    } catch (err) {
-      console.error('[Cron] Error:', err.message);
-    }
+    runFetchBackground();
   }, SIX_HOURS);
 
   server.listen(PORT, () => {
     console.log(`App de Noticias corriendo en http://localhost:${PORT}`);
-    fetcher.fetchAll().then(r => {
-      console.log(`Primera carga: ${r.nuevas} noticias nuevas`);
-      if (r.nuevas > 0) broadcast({ type: 'new_noticias', count: r.nuevas });
-    }).catch(console.error);
+    runFetchBackground();
   });
 }
 

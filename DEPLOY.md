@@ -39,15 +39,15 @@ El repo ya trae `Dockerfile` (escucha en el puerto `8080`) y el build web commit
 6. La app queda en una URL del tipo:
    `https://<service-id>-production-<region>.suga.run`
 
-Prueba rápida: `https://<service-id>-production-<region>.suga.run/api/stats`
+Prueba rápida: `https://dioimgulfrk0-production-3hf80vbp.us-central1.suga.run/api/stats`
 
 ## 3. Uptime / keepalive
 
 Suga mantiene el servicio **siempre encendido** (no duerme, sin cold starts), así que
 no necesitas pings. El fetch interno del backend (`setInterval` cada 6h) corre solo.
-Opcionalmente, `.github/workflows/keepalive.yml` puede pasar de monitor con un cron
-cada 30 min sobre `/api/stats` y `/api/cron` (completar la URL real y descomentar)
-para recibir aviso por email si el servicio cae.
+Opcionalmente, `.github/workflows/keepalive.yml` ya hace un ping cada 30 min sobre
+`/api/stats` y `/api/cron` de `https://dioimgulfrk0-production-3hf80vbp.us-central1.suga.run`
+como monitor de uptime (aviso por email si algo cae).
 
 ## 4. Configurar la URL de la API en la app
 
