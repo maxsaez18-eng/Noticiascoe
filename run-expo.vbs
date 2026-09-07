@@ -1,1 +1,0 @@
-CreateObject("WScript.Shell").Run "cmd /c set EXPO_TOKEN=3fOcjr4GhMgCdWlXyhz6irQ0QobysO4VwBDKgfeL && cd /d C:\Users\Tokyotech\OneDrive\Desktop\app noticias\app && npx.cmd expo start --tunnel --port 8085 > C:\Users\Tokyotech\AppData\Local\Temp\expo-vbs2.log 2>&1", 0, False
